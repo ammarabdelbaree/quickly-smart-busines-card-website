@@ -9,7 +9,7 @@ const rateLimit = require("express-rate-limit");
 // --- CONFIGURATION & INIT ---
 
 // Initialize Firebase
-// Ensure GOOGLE_APPLICATION_CREDENTIALS is set in .env pointing to your JSON file
+// Make sure GOOGLE_APPLICATION_CREDENTIALS is set in .env pointing to your JSON file
 admin.initializeApp({
   credential: admin.credential.applicationDefault(),
   storageBucket: process.env.FIREBASE_BUCKET_URL,
@@ -24,59 +24,30 @@ const app = express();
 // Security Headers
 app.use(helmet());
 
-// CORS Configuration (Restrict this in production!)
+// CORS Configuration (restrict in production)
 app.use(
   cors({
-    origin: "*", // TODO: Change this to your frontend URL (e.g., "https://myapp.com")
+    origin: "*", // Change to your frontend URL in production
     methods: ["GET", "POST", "PUT"],
-  }),
+  })
 );
 
 // Body Parsing
 app.use(express.json({ limit: "10mb" }));
 
-// Rate Limiting (Prevent Brute Force & DB Flooding)
+// Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100, // Limit each IP
   message: "Too many requests from this IP, please try again later.",
 });
 app.use(apiLimiter);
-
-// --- HELPERS ---
-
-const uploadBase64Image = async (base64String, destinationPath) => {
-  try {
-    // Basic validation
-    if (!base64String || !base64String.includes("base64")) return null;
-
-    const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3)
-      throw new Error("Invalid input string");
-
-    const type = matches[1];
-    const buffer = Buffer.from(matches[2], "base64");
-    const file = bucket.file(destinationPath);
-
-    await file.save(buffer, {
-      metadata: { contentType: type },
-      public: true, // Note: Ensure your bucket IAM allows public reads
-    });
-
-    return `https://storage.googleapis.com/${bucket.name}/${destinationPath}`;
-  } catch (error) {
-    console.error("Image Upload Error:", error);
-    throw new Error("Failed to upload image");
-  }
-};
 
 // --- ENDPOINTS ---
 
 /**
  * GET /tag/:tagId
- * Fetches tag status.
- * WARNING: This implementation "Lazy Creates" tags.
- * An attacker could flood your DB by requesting random IDs.
+ * Fetch tag status. Returns 404 if tag doesn't exist.
  */
 app.get("/tag/:tagId", async (req, res) => {
   const { tagId } = req.params;
@@ -85,28 +56,13 @@ app.get("/tag/:tagId", async (req, res) => {
     const tagRef = db.collection("tags").doc(tagId);
     const tagDoc = await tagRef.get();
 
-    // 1. Tag doesn't exist? Create a fresh unassigned one.
     if (!tagDoc.exists) {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const hashedCode = await bcrypt.hash(code, 10);
-
-      await tagRef.set({
-        verificationCode: hashedCode,
-        tempCode: code, // In prod, consider not storing plain text tempCode after printing it physically
-        isSetup: false,
-        pageData: {},
-        ownerId: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return res.json({ status: "new", isSetup: false, code });
+      return res.status(404).json({ error: "Tag not found" });
     }
 
     const tagData = tagDoc.data();
 
-    // 2. Tag exists but is already claimed/owned
     if (tagData.ownerId) {
-      // If the owner is viewing this, the frontend should handle the redirect to login/edit
       return res.json({
         status: "claimed",
         isSetup: tagData.isSetup,
@@ -114,7 +70,6 @@ app.get("/tag/:tagId", async (req, res) => {
       });
     }
 
-    // 3. Tag exists but is unclaimed (waiting for setup)
     return res.json({
       status: "unclaimed",
       isSetup: false,
@@ -127,8 +82,47 @@ app.get("/tag/:tagId", async (req, res) => {
 });
 
 /**
+ * POST /admin/create-tag
+ * Admin-only endpoint to manually create tags
+ */
+app.post("/admin/create-tag", async (req, res) => {
+  const { tagId } = req.body;
+  const adminSecret = req.headers["x-admin-secret"];
+
+  if (adminSecret !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const tagRef = db.collection("tags").doc(tagId);
+    const tagDoc = await tagRef.get();
+
+    if (tagDoc.exists) {
+      return res.status(409).json({ error: "Tag already exists" });
+    }
+
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const hashedCode = await bcrypt.hash(code, 10);
+
+    await tagRef.set({
+      verificationCode: hashedCode,
+      tempCode: code,
+      isSetup: false,
+      pageData: {},
+      ownerId: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ message: "Tag created", tagId, code });
+  } catch (err) {
+    console.error("Error creating tag:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
  * POST /claim-tag
- * Atomic transaction to claim a tag.
+ * Claim a tag atomically
  */
 app.post("/claim-tag", async (req, res) => {
   const { tagId, code, email, password, isExistingUser } = req.body;
@@ -138,7 +132,6 @@ app.post("/claim-tag", async (req, res) => {
   }
 
   try {
-    // use a Transaction to ensure no one else claims it while we are checking
     const result = await db.runTransaction(async (t) => {
       const tagRef = db.collection("tags").doc(tagId);
       const tagDoc = await t.get(tagRef);
@@ -147,43 +140,29 @@ app.post("/claim-tag", async (req, res) => {
 
       const tagData = tagDoc.data();
 
-      // Check if already owned
       if (tagData.ownerId) throw new Error("TAG_ALREADY_CLAIMED");
 
-      // Verify Code
       const isMatch = await bcrypt.compare(code, tagData.verificationCode);
       if (!isMatch) throw new Error("INVALID_CODE");
 
       let uid;
 
-      // Handle User Logic
       if (isExistingUser) {
-        try {
-          const userRecord = await admin.auth().getUserByEmail(email);
-          uid = userRecord.uid;
-        } catch (e) {
-          throw new Error("USER_NOT_FOUND");
-        }
+        const userRecord = await admin.auth().getUserByEmail(email);
+        uid = userRecord.uid;
       } else {
-        try {
-          const userRecord = await admin.auth().createUser({
-            email,
-            password,
-            displayName: "New User",
-          });
-          uid = userRecord.uid;
-        } catch (e) {
-          throw new Error("EMAIL_IN_USE"); // Simplify auth errors for transaction block
-        }
+        const userRecord = await admin.auth().createUser({
+          email,
+          password,
+          displayName: "New User",
+        });
+        uid = userRecord.uid;
       }
 
-      // Claim the tag
       t.update(tagRef, {
         ownerId: uid,
-        // We do NOT set isSetup: true yet. They claimed it, but haven't saved their profile.
         claimedAt: admin.firestore.FieldValue.serverTimestamp(),
-        // Optional: Remove tempCode now for security
-        tempCode: admin.firestore.FieldValue.delete()
+        tempCode: admin.firestore.FieldValue.delete(),
       });
 
       return { uid };
@@ -192,8 +171,6 @@ app.post("/claim-tag", async (req, res) => {
     res.json({ message: "Tag claimed successfully", uid: result.uid });
   } catch (err) {
     console.error("Claim Transaction Error:", err.message);
-
-    // Map internal errors to HTTP responses
     const errorMap = {
       TAG_NOT_FOUND: 404,
       TAG_ALREADY_CLAIMED: 409,
@@ -201,72 +178,38 @@ app.post("/claim-tag", async (req, res) => {
       USER_NOT_FOUND: 404,
       EMAIL_IN_USE: 400,
     };
-
     const status = errorMap[err.message] || 500;
     const msg = errorMap[err.message] ? err.message : "Internal Server Error";
-
     res.status(status).json({ error: msg });
   }
 });
 
 /**
  * POST /save-page
- * Authenticated endpoint to save profile data.
+ * Save profile data for the tag
+ * Now uses URLs uploaded directly from frontend to Firebase Storage
  */
 app.post("/save-page", async (req, res) => {
-  const { token, tagId, pageData, profilePicBase64, coverPhotoBase64 } =
-    req.body;
+  const { token, tagId, pageData, profilePic, coverPhoto } = req.body;
 
-  if (!token || !tagId) {
-    return res.status(400).json({ error: "Missing token or tagId" });
-  }
+  if (!token || !tagId) return res.status(400).json({ error: "Missing token or tagId" });
 
   try {
-    // Verify ID Token
     const decodedToken = await admin.auth().verifyIdToken(token);
     const userId = decodedToken.uid;
 
     const tagRef = db.collection("tags").doc(tagId);
     const tagDoc = await tagRef.get();
 
-    // Authorization Check: Does this user own this tag?
     if (!tagDoc.exists || tagDoc.data().ownerId !== userId) {
       return res.status(403).json({ error: "Unauthorized access to this tag" });
     }
 
-    const parsedPageData =
-      typeof pageData === "string" ? JSON.parse(pageData) : pageData;
+    const parsedPageData = typeof pageData === "string" ? JSON.parse(pageData) : pageData;
 
-    // Updated: Handle image uploads
-    let profilePicUrl = null;
-    let coverPhotoUrl = null;
-
-    if (profilePicBase64) {
-      try {
-        profilePicUrl = await uploadBase64Image(
-          profilePicBase64,
-          `profiles/${userId}/profile.jpg`,
-        );
-      } catch (error) {
-        console.error("Profile pic upload failed:", error);
-        // Continue without failing the whole request
-      }
-    }
-
-    if (coverPhotoBase64) {
-      try {
-        coverPhotoUrl = await uploadBase64Image(
-          coverPhotoBase64,
-          `profiles/${userId}/cover.jpg`,
-        );
-      } catch (error) {
-        console.error("Cover photo upload failed:", error);
-      }
-    }
-
-    // Updated: Add URLs to pageData
-    if (profilePicUrl) parsedPageData.profilePic = profilePicUrl;
-    if (coverPhotoUrl) parsedPageData.coverPhoto = coverPhotoUrl;
+    // Use URLs sent from frontend
+    if (profilePic) parsedPageData.profilePic = profilePic;
+    if (coverPhoto) parsedPageData.coverPhoto = coverPhoto;
 
     await tagRef.update({
       pageData: parsedPageData,
@@ -286,7 +229,7 @@ app.post("/save-page", async (req, res) => {
 
 /**
  * GET /card/:tagId
- * Public endpoint to fetch the profile card.
+ * Public endpoint to fetch profile card
  */
 app.get("/card/:tagId", async (req, res) => {
   try {
@@ -299,10 +242,7 @@ app.get("/card/:tagId", async (req, res) => {
     const data = tagDoc.data();
 
     if (!data.isSetup) {
-      // You might want to return a specific code here so the frontend can show a "Not Setup Yet" screen
-      return res
-        .status(404)
-        .json({ error: "Profile not set up yet", code: "NOT_SETUP" });
+      return res.status(404).json({ error: "Profile not set up yet", code: "NOT_SETUP" });
     }
 
     res.json(data.pageData);
@@ -312,5 +252,6 @@ app.get("/card/:tagId", async (req, res) => {
   }
 });
 
+// --- START SERVER ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
