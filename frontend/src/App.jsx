@@ -60,18 +60,18 @@ function App() {
   // =============================
   // Fetch Tag Data from Backend
   // =============================
-  const fetchTag = useCallback(async () => {
-    if (!tagId) return;
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/tag/${tagId}`
-      );
-      setTagData(response.data);
-    } catch (error) {
-      console.error("Fetch failed:", error);
-      setView(VIEWS.ERROR);
-    }
-  }, [tagId]);
+const fetchTag = useCallback(async () => {
+  if (!tagId) return;
+  try {
+    const response = await axios.get(
+      `${process.env.REACT_APP_API_BASE_URL}/tag/${tagId}`
+    );
+    setTagData(response.data);
+  } catch (error) {
+    console.error("Fetch failed:", error.response?.status, error.response?.data, error.message);
+    setView(VIEWS.ERROR);
+  }
+}, [tagId]);
 
   // =============================
   // Auth Listener
@@ -150,6 +150,13 @@ function App() {
   }, [showChoice]);
 
   // =============================
+  // Admin Panel — checked FIRST before loading/error
+  // =============================
+  if (isAdminPanel) {
+    return <AdminPanel />;
+  }
+
+  // =============================
   // Loading / Error
   // =============================
   if (view === VIEWS.LOADING) {
@@ -170,13 +177,6 @@ function App() {
         </p>
       </div>
     );
-  }
-
-  // =============================
-  // Admin Panel
-  // =============================
-  if (isAdminPanel) {
-    return <AdminPanel />;
   }
 
   // =============================
@@ -240,8 +240,6 @@ function App() {
             )}
           </>
         )}
-
-        {/* Other views like cards, buynow, etc. will remain untouched */}
       </div>
     </div>
   );
