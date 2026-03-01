@@ -1,0 +1,309 @@
+/* ============================================================
+   QUICKLY NFC – THE COMPLETE STYLESHEET
+   Supports: FirstScan, Register, Choice, Login, Setup, & Public
+   ============================================================ */
+
+/* 1. CONFIGURATION & THEME */
+:root {
+  /* Colors */
+  --bg-main: #181821;
+  --bg-card: #1c1c28;
+  --bg-soft: #262635;
+  --primary: #a354ee;
+  --secondary: #e54796;
+  --gradient: linear-gradient(135deg, #a354ee, #e54796);
+
+  /* Text */
+  --text-main: #eceff4;
+  --text-muted: #a1a8b5;
+
+  /* UI / Effects */
+  --border-soft: rgba(242, 240, 240, 0.08);
+  --shadow-soft: 0 10px 30px rgba(161, 80, 236, 0.2);
+  --glass: rgba(244, 244, 244, 0.03);
+  --radius: 20px;
+}
+
+/* 2. BASE RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    sans-serif;
+  background: radial-gradient(circle at top right, #22223b, #11111c);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 500px; /* Perfect for mobile viewing */
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3. SHARED PAGE COMPONENTS */
+.page {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 30px 24px;
+  box-shadow: var(--shadow-soft);
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.4s ease-out;
+  margin: 12% 0;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+h2 {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+}
+
+p {
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+/* 4. BUTTONS & INPUTS */
+.btn {
+  width: 100%;
+  background: var(--gradient);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  display: block;
+}
+
+.admin-btn {
+  background: #444444a8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.add-btn,
+select,
+.remove-btn {
+  width: 90px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.add-btn {
+  margin-bottom: 15px;
+  background: #6078f075;
+}
+select {
+  width: 100%;
+  height: 48px;
+}
+.remove-btn {
+  width: 100%;
+  margin: 0 0 55px;
+  background: #f0606075;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: #4e4e5184;
+  border: 1px solid rgb(249 241 255 / 37%);
+  color: var(--text-main);
+}
+
+input,
+textarea {
+  width: 100%;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-group {
+  text-align: left;
+  margin-bottom: 15px;
+}
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+}
+
+/* 5. PUBLIC PAGE SPECIFIC (The Overlap) */
+.public-card {
+  padding: 0 0 30px 0;
+  overflow: hidden;
+}
+
+.profile-pic {
+  width: 110px;
+  height: 110px;
+  margin: -55px auto 10px; /* The Magic Overlap */
+  border-radius: 50%;
+  border: 5px solid var(--bg-card);
+  overflow: hidden;
+  position: relative;
+  z-index: 5;
+  background: var(--bg-soft);
+}
+.profile-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Links Grid */
+.contact-info,
+.social-media,
+.additional-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px;
+}
+
+.social-link,
+.link {
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  padding: 14px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  text-decoration: none;
+  font-weight: 600;
+  transition: 0.3s;
+}
+
+.social-link:hover {
+  border-color: var(--primary);
+  background: var(--glass);
+}
+
+.icon {
+  width: 55px;
+  height: 55px;
+  padding: 5px;
+}
+
+/* 6. CHOICE PAGE SPECIFIC */
+.choice-container .option {
+  background: var(--bg-soft);
+  padding: 20px;
+  border-radius: 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-soft);
+  transition: 0.3s;
+  cursor: pointer;
+}
+
+.choice-container .option:hover {
+  border-color: var(--secondary);
+  transform: translateY(-3px);
+}
+
+/* 7. STATUS STATES */
+.loading-screen,
+.error-page {
+  height: 80vh;
+  width: 600px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.loading-screen {
+  color: var(--primary);
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+.error-page h1 {
+  background: none;
+  color: #ef4444;
+}
+
+/* 8. ANIMATIONS */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 9. RESPONSIVE */
+@media (max-width: 400px) {
+  .app-container {
+    padding: 10px;
+  }
+  .page {
+    padding: 20px 15px;
+  }
+  h1 {
+    font-size: 1.6rem;
+  }
+}
+
+.error-banner {
+  color: rgb(243, 34, 34);
+  margin-bottom: 25px;
+}
