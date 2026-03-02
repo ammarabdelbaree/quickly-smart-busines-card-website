@@ -19,6 +19,7 @@ import "./App.css";
 const VIEWS = {
   LOADING: "loading",
   ERROR: "error",
+  DEACTIVATED: "deactivated",   // ← NEW
   HOME: "home",
   FIRST_SCAN: "first-scan",
   REGISTER: "register",
@@ -42,7 +43,7 @@ function App() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
   const firstSegment = pathParts[0] || null;
 
-  const isAdminPanel = window.location.pathname === "/admin/create-tag";
+  const isAdminPanel = window.location.pathname === "/admin";
   const tagId = !isAdminPanel ? firstSegment : null;
 
   // =============================
@@ -60,18 +61,18 @@ function App() {
   // =============================
   // Fetch Tag Data from Backend
   // =============================
-const fetchTag = useCallback(async () => {
-  if (!tagId) return;
-  try {
-    const response = await axios.get(
-      `${process.env.REACT_APP_API_BASE_URL}/tag/${tagId}`
-    );
-    setTagData(response.data);
-  } catch (error) {
-    console.error("Fetch failed:", error.response?.status, error.response?.data, error.message);
-    setView(VIEWS.ERROR);
-  }
-}, [tagId]);
+  const fetchTag = useCallback(async () => {
+    if (!tagId) return;
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_BASE_URL}/tag/${tagId}`
+      );
+      setTagData(response.data);
+    } catch (error) {
+      console.error("Fetch failed:", error.response?.status, error.message);
+      setView(VIEWS.ERROR);
+    }
+  }, [tagId]);
 
   // =============================
   // Auth Listener
@@ -95,7 +96,7 @@ const fetchTag = useCallback(async () => {
   // Decision Engine
   // =============================
   useEffect(() => {
-    if (isAdminPanel) return; // Skip tag logic for admin
+    if (isAdminPanel) return;
 
     if (!tagId) {
       setView(VIEWS.HOME);
@@ -103,6 +104,12 @@ const fetchTag = useCallback(async () => {
     }
 
     if (!authLoaded || !tagData) return;
+
+    // ← NEW: tag is deactivated
+    if (tagData.status === "deactivated") {
+      setView(VIEWS.DEACTIVATED);
+      return;
+    }
 
     // Tag exists but unclaimed
     if (!tagData.ownerId && !tagData.isSetup) {
@@ -150,7 +157,7 @@ const fetchTag = useCallback(async () => {
   }, [showChoice]);
 
   // =============================
-  // Admin Panel — checked FIRST before loading/error
+  // Admin Panel — FIRST, before loading/error
   // =============================
   if (isAdminPanel) {
     return <AdminPanel />;
@@ -174,6 +181,21 @@ const fetchTag = useCallback(async () => {
         <h1 style={{ fontSize: "7rem", textAlign: "center" }}>404</h1>
         <p style={{ fontSize: "1.5rem", textAlign: "center" }}>
           This is not the page you are looking for.
+        </p>
+      </div>
+    );
+  }
+
+  // ← NEW: Deactivated screen
+  if (view === VIEWS.DEACTIVATED) {
+    return (
+      <div className="error-screen">
+        <h1 style={{ fontSize: "4rem", textAlign: "center" }}>⚠️</h1>
+        <p style={{ fontSize: "1.5rem", textAlign: "center", fontWeight: "700" }}>
+          This tag is currently inactive.
+        </p>
+        <p style={{ fontSize: "1rem", textAlign: "center", color: "#64748b" }}>
+          Please contact support to reactivate it.
         </p>
       </div>
     );

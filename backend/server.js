@@ -45,12 +45,79 @@ app.use(apiLimiter);
 
 // --- ENDPOINTS ---
 
+// ── GET all tags (admin only) ──────────────────────────────
+app.get("/admin/tags", async (req, res) => {
+  const adminSecret = req.headers["x-admin-secret"];
+  if (adminSecret !== process.env.ADMIN_SECRET)
+    return res.status(403).json({ error: "Unauthorized" });
+
+  try {
+    const snapshot = await db.collection("tags").get();
+    const tags = snapshot.docs.map((doc) => ({
+      tagId: doc.id,
+      ...doc.data(),
+      // never expose hashed code to frontend
+      verificationCode: undefined,
+      tempCode: undefined,
+    }));
+    res.json({ tags });
+  } catch (err) {
+    console.error("Error fetching tags:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── POST deactivate tag ────────────────────────────────────
+app.post("/admin/deactivate-tag", async (req, res) => {
+  const adminSecret = req.headers["x-admin-secret"];
+  if (adminSecret !== process.env.ADMIN_SECRET)
+    return res.status(403).json({ error: "Unauthorized" });
+
+  const tagId = req.body.tagId?.trim().toLowerCase();
+  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
+
+  try {
+    const tagRef = db.collection("tags").doc(tagId);
+    const tagDoc = await tagRef.get();
+    if (!tagDoc.exists) return res.status(404).json({ error: "Tag not found" });
+
+    await tagRef.update({ isActive: false });
+    res.json({ message: "Tag deactivated", tagId });
+  } catch (err) {
+    console.error("Error deactivating tag:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── POST reactivate tag ────────────────────────────────────
+app.post("/admin/reactivate-tag", async (req, res) => {
+  const adminSecret = req.headers["x-admin-secret"];
+  if (adminSecret !== process.env.ADMIN_SECRET)
+    return res.status(403).json({ error: "Unauthorized" });
+
+  const tagId = req.body.tagId?.trim().toLowerCase();
+  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
+
+  try {
+    const tagRef = db.collection("tags").doc(tagId);
+    const tagDoc = await tagRef.get();
+    if (!tagDoc.exists) return res.status(404).json({ error: "Tag not found" });
+
+    await tagRef.update({ isActive: true });
+    res.json({ message: "Tag reactivated", tagId });
+  } catch (err) {
+    console.error("Error reactivating tag:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 /**
  * GET /tag/:tagId
  * Fetch tag status. Returns 404 if tag doesn't exist.
  */
 app.get("/tag/:tagId", async (req, res) => {
-  const { tagId } = req.params;
+  const tagId = req.params.tagId?.trim().toLowerCase();
 
   try {
     const tagRef = db.collection("tags").doc(tagId);
@@ -61,6 +128,11 @@ app.get("/tag/:tagId", async (req, res) => {
     }
 
     const tagData = tagDoc.data();
+
+    // ← NEW: deactivated tags return a specific status
+    if (tagData.isActive === false) {
+      return res.status(200).json({ status: "deactivated" });
+    }
 
     if (tagData.ownerId) {
       return res.json({
@@ -77,29 +149,27 @@ app.get("/tag/:tagId", async (req, res) => {
     });
   } catch (err) {
     console.error(`Error fetching tag ${tagId}:`, err);
-    res.status(500).json({ error: "Server error processing tag" });
+    res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /**
  * POST /admin/create-tag
  * Admin-only endpoint to manually create tags
  */
 app.post("/admin/create-tag", async (req, res) => {
-  const { tagId } = req.body;
   const adminSecret = req.headers["x-admin-secret"];
-
-  if (adminSecret !== process.env.ADMIN_SECRET) {
+  if (adminSecret !== process.env.ADMIN_SECRET)
     return res.status(403).json({ error: "Unauthorized" });
-  }
+
+  const tagId = req.body.tagId?.trim().toLowerCase(); // normalize here too
+  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
 
   try {
     const tagRef = db.collection("tags").doc(tagId);
     const tagDoc = await tagRef.get();
-
-    if (tagDoc.exists) {
-      return res.status(409).json({ error: "Tag already exists" });
-    }
+    if (tagDoc.exists) return res.status(409).json({ error: "Tag already exists" });
 
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const hashedCode = await bcrypt.hash(code, 10);
@@ -108,6 +178,7 @@ app.post("/admin/create-tag", async (req, res) => {
       verificationCode: hashedCode,
       tempCode: code,
       isSetup: false,
+      isActive: true,           // ← NEW
       pageData: {},
       ownerId: null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -119,6 +190,7 @@ app.post("/admin/create-tag", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /**
  * POST /claim-tag
