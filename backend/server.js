@@ -25,7 +25,7 @@ app.use(helmet());
 // e.g. origin: "https://yourapp.com"
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "*",
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT"],
   })
 );
@@ -41,11 +41,11 @@ const apiLimiter = rateLimit({
 app.use(apiLimiter);
 
 // Stricter limiter for admin routes
-const adminLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: "Too many admin requests, please try again later.",
-});
+// const adminLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 20,
+//   message: "Too many admin requests, please try again later.",
+// });
 
 // --- HELPER ---
 const requireAdmin = (req, res) => {
@@ -61,13 +61,13 @@ const requireAdmin = (req, res) => {
 // ── POST /admin/login ──────────────────────────────────────
 // Validates the admin secret. Frontend calls this on login.
 // The secret never needs to be stored on the frontend.
-app.post("/admin/login", adminLimiter, (req, res) => {
+app.post("/admin/login", (req, res) => {
   if (!requireAdmin(req, res)) return;
   res.json({ ok: true });
 });
 
 // ── GET /admin/tags ────────────────────────────────────────
-app.get("/admin/tags", adminLimiter, async (req, res) => {
+app.get("/admin/tags", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
@@ -91,7 +91,7 @@ app.get("/admin/tags", adminLimiter, async (req, res) => {
 });
 
 // ── POST /admin/create-tag ─────────────────────────────────
-app.post("/admin/create-tag", adminLimiter, async (req, res) => {
+app.post("/admin/create-tag", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   const tagId = req.body.tagId?.trim().toLowerCase();
@@ -123,7 +123,7 @@ app.post("/admin/create-tag", adminLimiter, async (req, res) => {
 });
 
 // ── POST /admin/deactivate-tag ─────────────────────────────
-app.post("/admin/deactivate-tag", adminLimiter, async (req, res) => {
+app.post("/admin/deactivate-tag", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   const tagId = req.body.tagId?.trim().toLowerCase();
@@ -143,7 +143,7 @@ app.post("/admin/deactivate-tag", adminLimiter, async (req, res) => {
 });
 
 // ── POST /admin/reactivate-tag ─────────────────────────────
-app.post("/admin/reactivate-tag", adminLimiter, async (req, res) => {
+app.post("/admin/reactivate-tag", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   const tagId = req.body.tagId?.trim().toLowerCase();

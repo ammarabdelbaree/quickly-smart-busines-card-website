@@ -104,7 +104,7 @@ function Panel({ secret }) {
     if (!id) return flash("Please enter a Tag ID.", "error");
     try {
       const res = await axios.post(`${API}/admin/create-tag`, { tagId: id }, authHeaders);
-      flash(`✅ Tag "${id}" created!`, "success");
+      flash(`✅ Tag "${id}" created! Code: ${res.data.code}`, "success");
       setNewTagId("");
       fetchTags();
     } catch (err) {
@@ -174,7 +174,9 @@ function Panel({ secret }) {
 
         {/* Search */}
         <div className="ap-section">
-          <h3 className="ap-section-title">All Tags</h3>
+          <div className="ap-row" style={{ justifyContent: "space-between" }}>
+            <h3 className="ap-section-title">All Tags</h3>
+          </div>
           <input
             className="ap-input"
             placeholder="Search by Tag ID or phone number..."
@@ -193,6 +195,9 @@ function Panel({ secret }) {
             <table className="ap-table">
               <thead>
                 <tr>
+                  <th className="ap-th">
+                    <button className="ap-refresh-btn" onClick={fetchTags} title="Refresh">↻</button>
+                  </th>
                   {["Tag ID", "Status", "Phone", "Owner", "Setup", "Actions"].map((h) => (
                     <th key={h} className="ap-th">{h}</th>
                   ))}
@@ -201,6 +206,7 @@ function Panel({ secret }) {
               <tbody>
                 {filtered.map((tag) => (
                   <tr key={tag.tagId} className="ap-tr">
+                    <td className="ap-td"></td>
                     <td className="ap-td"><code className="ap-code">{tag.tagId}</code></td>
                     <td className="ap-td"><Badge tag={tag} /></td>
                     <td className="ap-td">
