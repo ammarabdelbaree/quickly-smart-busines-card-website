@@ -72,7 +72,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
 
   const savePage = async () => {
     if (!auth.currentUser) return setErrorMsg("You must be logged in.");
-    if (!pageData.name) return setErrorMsg("Name is required.");
+    if (!pageData.name || !pageData.phone) return setErrorMsg("Name and phone number are required.");
 
     try {
       setLoading(true);
@@ -136,7 +136,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
             className="logout-btn"
             style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.9rem" }}
           >
-            ← ‎ Logout
+            ← ‎ View profile
           </button>
         </div>
       </nav>

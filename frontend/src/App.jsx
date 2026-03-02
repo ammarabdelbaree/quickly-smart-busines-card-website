@@ -11,7 +11,6 @@ import AdminLoginPage from "./AdminLoginPage";
 import SetupPage from "./SetupPage";
 import PublicPage from "./PublicPage";
 import AdminPanel from "./AdminPanel";
-import LandingChoicePage from "./LandingChoicePage";
 
 // Keep CSS intact
 import "./App.css";
@@ -34,9 +33,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [authLoaded, setAuthLoaded] = useState(false);
 
-  const [showChoice, setShowChoice] = useState(false);
-  const [closingChoice, setClosingChoice] = useState(false);
-
   // =============================
   // Extract tagId from URL
   // =============================
@@ -45,18 +41,6 @@ function App() {
 
   const isAdminPanel = window.location.pathname === "/admin";
   const tagId = !isAdminPanel ? firstSegment : null;
-
-  // =============================
-  // Smooth Close Overlay
-  // =============================
-  const closeChoiceSmoothly = (callback) => {
-    setClosingChoice(true);
-    setTimeout(() => {
-      setShowChoice(false);
-      setClosingChoice(false);
-      if (callback) callback();
-    }, 300);
-  };
 
   // =============================
   // Fetch Tag Data from Backend
@@ -132,29 +116,6 @@ function App() {
       setView(VIEWS.PUBLIC);
     }
   }, [authLoaded, tagData, user, tagId, isAdminPanel]);
-
-  // =============================
-  // Open overlay only when entering PUBLIC
-  // =============================
-  useEffect(() => {
-    if (view === VIEWS.PUBLIC) {
-      setShowChoice(true);
-    }
-  }, [view]);
-
-  // =============================
-  // Body Scroll Control
-  // =============================
-  useEffect(() => {
-    if (showChoice) {
-      document.body.classList.add("no-scroll");
-    } else {
-      document.body.classList.remove("no-scroll");
-    }
-    return () => {
-      document.body.classList.remove("no-scroll");
-    };
-  }, [showChoice]);
 
   // =============================
   // Admin Panel — FIRST, before loading/error
@@ -240,27 +201,11 @@ function App() {
         )}
 
         {view === VIEWS.PUBLIC && (
-          <>
             <PublicPage
               tagId={tagId}
               onBack={() => (user ? setView(VIEWS.SETUP) : setView(VIEWS.LOGIN))}
-              onAdminLogin={() => setShowChoice(true)}
               handleRetry={() => (user ? setView(VIEWS.SETUP) : setView(VIEWS.LOGIN))}
             />
-
-            {showChoice && (
-              <LandingChoicePage
-                tagId={tagId}
-                closing={closingChoice}
-                onGuest={() => closeChoiceSmoothly()}
-                onAdmin={() =>
-                  closeChoiceSmoothly(() =>
-                    user ? setView(VIEWS.SETUP) : setView(VIEWS.LOGIN)
-                  )
-                }
-              />
-            )}
-          </>
         )}
       </div>
     </div>

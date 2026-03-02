@@ -32,7 +32,7 @@ function LoginScreen({ onLogin }) {
         {},
         { headers: { "x-admin-secret": secret } }
       );
-      onLogin(secret); // pass the valid secret up so Panel can reuse it
+      onLogin(secret);
     } catch (err) {
       setError("Invalid admin secret.");
       setShaking(true);
@@ -77,10 +77,9 @@ function Panel({ secret }) {
   const [tags, setTags]         = useState([]);
   const [search, setSearch]     = useState("");
   const [newTagId, setNewTagId] = useState("");
-  const [msg, setMsg]           = useState(null); // { text, type }
+  const [msg, setMsg]           = useState(null);
   const [loading, setLoading]   = useState(true);
 
-  // ── Fetch all tags ──
   const fetchTags = async () => {
     setLoading(true);
     try {
@@ -100,13 +99,12 @@ function Panel({ secret }) {
     setTimeout(() => setMsg(null), 4000);
   };
 
-  // ── Create ──
   const createTag = async () => {
     const id = newTagId.trim().toLowerCase();
     if (!id) return flash("Please enter a Tag ID.", "error");
     try {
       const res = await axios.post(`${API}/admin/create-tag`, { tagId: id }, authHeaders);
-      flash(`✅ Tag "${id}" created! Code: ${res.data.code}`, "success");
+      flash(`✅ Tag "${id}" created!`, "success");
       setNewTagId("");
       fetchTags();
     } catch (err) {
@@ -114,7 +112,6 @@ function Panel({ secret }) {
     }
   };
 
-  // ── Deactivate ──
   const deactivateTag = async (tagId) => {
     if (!window.confirm(`Deactivate "${tagId}"? Users will see a "contact support" message.`)) return;
     try {
@@ -126,7 +123,6 @@ function Panel({ secret }) {
     }
   };
 
-  // ── Reactivate ──
   const reactivateTag = async (tagId) => {
     try {
       await axios.post(`${API}/admin/reactivate-tag`, { tagId }, authHeaders);
@@ -137,9 +133,14 @@ function Panel({ secret }) {
     }
   };
 
-  const filtered = tags.filter((t) =>
-    t.tagId.toLowerCase().includes(search.toLowerCase())
-  );
+  // Search by Tag ID or phone number
+  const filtered = tags.filter((t) => {
+    const q = search.toLowerCase();
+    return (
+      t.tagId.toLowerCase().includes(q) ||
+      (t.phone && t.phone.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <div className="ap-panel-wrapper">
@@ -153,9 +154,7 @@ function Panel({ secret }) {
 
         {/* Flash message */}
         {msg && (
-          <div className={`ap-flash ${msg.type}`}>
-            {msg.text}
-          </div>
+          <div className={`ap-flash ${msg.type}`}>{msg.text}</div>
         )}
 
         {/* Create new tag */}
@@ -178,7 +177,7 @@ function Panel({ secret }) {
           <h3 className="ap-section-title">All Tags</h3>
           <input
             className="ap-input"
-            placeholder="Search by Tag ID..."
+            placeholder="Search by Tag ID or phone number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -194,7 +193,7 @@ function Panel({ secret }) {
             <table className="ap-table">
               <thead>
                 <tr>
-                  {["Tag ID", "Status", "Owner", "Setup", "Actions"].map((h) => (
+                  {["Tag ID", "Status", "Phone", "Owner", "Setup", "Actions"].map((h) => (
                     <th key={h} className="ap-th">{h}</th>
                   ))}
                 </tr>
@@ -204,6 +203,9 @@ function Panel({ secret }) {
                   <tr key={tag.tagId} className="ap-tr">
                     <td className="ap-td"><code className="ap-code">{tag.tagId}</code></td>
                     <td className="ap-td"><Badge tag={tag} /></td>
+                    <td className="ap-td">
+                      <span className="ap-subtle">{tag.phone || "—"}</span>
+                    </td>
                     <td className="ap-td"><span className="ap-subtle">{tag.ownerId ? "Yes" : "—"}</span></td>
                     <td className="ap-td"><span className="ap-subtle">{tag.isSetup ? "✓" : "—"}</span></td>
                     <td className="ap-td">
@@ -233,7 +235,7 @@ function Panel({ secret }) {
 // ROOT: login gate
 // ─────────────────────────────────────────────
 function AdminPanel() {
-  const [secret, setSecret] = useState(null); // null = not authed yet
+  const [secret, setSecret] = useState(null);
   if (!secret) return <LoginScreen onLogin={(s) => setSecret(s)} />;
   return <Panel secret={secret} />;
 }

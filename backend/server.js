@@ -14,7 +14,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-// const bucket = admin.storage().bucket();
+const bucket = admin.storage().bucket();
 const app = express();
 
 // --- MIDDLEWARE ---
@@ -25,17 +25,7 @@ app.use(helmet());
 // e.g. origin: "https://yourapp.com"
 app.use(
   cors({
-    origin: function (origin, callback) {
-      const allowed = [
-        "http://localhost:3000",
-        "https://quickly.com", // your production domain
-      ];
-      if (!origin || allowed.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: process.env.FRONTEND_URL || "*",
     methods: ["GET", "POST", "PUT"],
   })
 );
@@ -82,12 +72,17 @@ app.get("/admin/tags", adminLimiter, async (req, res) => {
 
   try {
     const snapshot = await db.collection("tags").get();
-    const tags = snapshot.docs.map((doc) => ({
-      tagId: doc.id,
-      ...doc.data(),
-      verificationCode: undefined, // never expose hashed code
-      tempCode: undefined,         // never expose plain code
-    }));
+    const tags = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        tagId: doc.id,
+        isActive: data.isActive,
+        isSetup: data.isSetup,
+        ownerId: data.ownerId,
+        createdAt: data.createdAt,
+        phone: data.pageData?.phone || null, // ← surface phone for admin panel
+      };
+    });
     res.json({ tags });
   } catch (err) {
     console.error("Error fetching tags:", err);
