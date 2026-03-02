@@ -8,57 +8,85 @@ const rateLimit = require("express-rate-limit");
 
 // --- CONFIGURATION & INIT ---
 
-// Initialize Firebase
-// Make sure GOOGLE_APPLICATION_CREDENTIALS is set in .env pointing to your JSON file
 admin.initializeApp({
   credential: admin.credential.applicationDefault(),
   storageBucket: process.env.FIREBASE_BUCKET_URL,
 });
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
+// const bucket = admin.storage().bucket();
 const app = express();
 
 // --- MIDDLEWARE ---
 
-// Security Headers
 app.use(helmet());
 
-// CORS Configuration (restrict in production)
+// ⚠️ PRODUCTION: replace * with your actual frontend URL
+// e.g. origin: "https://yourapp.com"
 app.use(
   cors({
-    origin: "*", // Change to your frontend URL in production
+    origin: function (origin, callback) {
+      const allowed = [
+        "http://localhost:3000",
+        "https://quickly.com", // your production domain
+      ];
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT"],
   })
 );
 
-// Body Parsing
 app.use(express.json({ limit: "10mb" }));
 
 // Rate Limiting
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: "Too many requests from this IP, please try again later.",
 });
 app.use(apiLimiter);
 
+// Stricter limiter for admin routes
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many admin requests, please try again later.",
+});
+
+// --- HELPER ---
+const requireAdmin = (req, res) => {
+  if (req.headers["x-admin-secret"] !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ error: "Unauthorized" });
+    return false;
+  }
+  return true;
+};
+
 // --- ENDPOINTS ---
 
-// ── GET all tags (admin only) ──────────────────────────────
-app.get("/admin/tags", async (req, res) => {
-  const adminSecret = req.headers["x-admin-secret"];
-  if (adminSecret !== process.env.ADMIN_SECRET)
-    return res.status(403).json({ error: "Unauthorized" });
+// ── POST /admin/login ──────────────────────────────────────
+// Validates the admin secret. Frontend calls this on login.
+// The secret never needs to be stored on the frontend.
+app.post("/admin/login", adminLimiter, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ ok: true });
+});
+
+// ── GET /admin/tags ────────────────────────────────────────
+app.get("/admin/tags", adminLimiter, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
 
   try {
     const snapshot = await db.collection("tags").get();
     const tags = snapshot.docs.map((doc) => ({
       tagId: doc.id,
       ...doc.data(),
-      // never expose hashed code to frontend
-      verificationCode: undefined,
-      tempCode: undefined,
+      verificationCode: undefined, // never expose hashed code
+      tempCode: undefined,         // never expose plain code
     }));
     res.json({ tags });
   } catch (err) {
@@ -67,11 +95,41 @@ app.get("/admin/tags", async (req, res) => {
   }
 });
 
-// ── POST deactivate tag ────────────────────────────────────
-app.post("/admin/deactivate-tag", async (req, res) => {
-  const adminSecret = req.headers["x-admin-secret"];
-  if (adminSecret !== process.env.ADMIN_SECRET)
-    return res.status(403).json({ error: "Unauthorized" });
+// ── POST /admin/create-tag ─────────────────────────────────
+app.post("/admin/create-tag", adminLimiter, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const tagId = req.body.tagId?.trim().toLowerCase();
+  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
+
+  try {
+    const tagRef = db.collection("tags").doc(tagId);
+    const tagDoc = await tagRef.get();
+    if (tagDoc.exists) return res.status(409).json({ error: "Tag already exists" });
+
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const hashedCode = await bcrypt.hash(code, 10);
+
+    await tagRef.set({
+      verificationCode: hashedCode,
+      tempCode: code,
+      isSetup: false,
+      isActive: true,
+      pageData: {},
+      ownerId: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ message: "Tag created", tagId, code });
+  } catch (err) {
+    console.error("Error creating tag:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── POST /admin/deactivate-tag ─────────────────────────────
+app.post("/admin/deactivate-tag", adminLimiter, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
 
   const tagId = req.body.tagId?.trim().toLowerCase();
   if (!tagId) return res.status(400).json({ error: "Tag ID required" });
@@ -89,11 +147,9 @@ app.post("/admin/deactivate-tag", async (req, res) => {
   }
 });
 
-// ── POST reactivate tag ────────────────────────────────────
-app.post("/admin/reactivate-tag", async (req, res) => {
-  const adminSecret = req.headers["x-admin-secret"];
-  if (adminSecret !== process.env.ADMIN_SECRET)
-    return res.status(403).json({ error: "Unauthorized" });
+// ── POST /admin/reactivate-tag ─────────────────────────────
+app.post("/admin/reactivate-tag", adminLimiter, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
 
   const tagId = req.body.tagId?.trim().toLowerCase();
   if (!tagId) return res.status(400).json({ error: "Tag ID required" });
@@ -111,11 +167,7 @@ app.post("/admin/reactivate-tag", async (req, res) => {
   }
 });
 
-
-/**
- * GET /tag/:tagId
- * Fetch tag status. Returns 404 if tag doesn't exist.
- */
+// ── GET /tag/:tagId ────────────────────────────────────────
 app.get("/tag/:tagId", async (req, res) => {
   const tagId = req.params.tagId?.trim().toLowerCase();
 
@@ -129,7 +181,6 @@ app.get("/tag/:tagId", async (req, res) => {
 
     const tagData = tagDoc.data();
 
-    // ← NEW: deactivated tags return a specific status
     if (tagData.isActive === false) {
       return res.status(200).json({ status: "deactivated" });
     }
@@ -153,49 +204,7 @@ app.get("/tag/:tagId", async (req, res) => {
   }
 });
 
-
-/**
- * POST /admin/create-tag
- * Admin-only endpoint to manually create tags
- */
-app.post("/admin/create-tag", async (req, res) => {
-  const adminSecret = req.headers["x-admin-secret"];
-  if (adminSecret !== process.env.ADMIN_SECRET)
-    return res.status(403).json({ error: "Unauthorized" });
-
-  const tagId = req.body.tagId?.trim().toLowerCase(); // normalize here too
-  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
-
-  try {
-    const tagRef = db.collection("tags").doc(tagId);
-    const tagDoc = await tagRef.get();
-    if (tagDoc.exists) return res.status(409).json({ error: "Tag already exists" });
-
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const hashedCode = await bcrypt.hash(code, 10);
-
-    await tagRef.set({
-      verificationCode: hashedCode,
-      tempCode: code,
-      isSetup: false,
-      isActive: true,           // ← NEW
-      pageData: {},
-      ownerId: null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    res.json({ message: "Tag created", tagId, code });
-  } catch (err) {
-    console.error("Error creating tag:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-
-/**
- * POST /claim-tag
- * Claim a tag atomically
- */
+// ── POST /claim-tag ────────────────────────────────────────
 app.post("/claim-tag", async (req, res) => {
   const { tagId, code, email, password, isExistingUser } = req.body;
 
@@ -234,7 +243,7 @@ app.post("/claim-tag", async (req, res) => {
       t.update(tagRef, {
         ownerId: uid,
         claimedAt: admin.firestore.FieldValue.serverTimestamp(),
-        tempCode: admin.firestore.FieldValue.delete(),
+        tempCode: admin.firestore.FieldValue.delete(), // ✅ cleans up plain code
       });
 
       return { uid };
@@ -256,11 +265,7 @@ app.post("/claim-tag", async (req, res) => {
   }
 });
 
-/**
- * POST /save-page
- * Save profile data for the tag
- * Now uses URLs uploaded directly from frontend to Firebase Storage
- */
+// ── POST /save-page ────────────────────────────────────────
 app.post("/save-page", async (req, res) => {
   const { token, tagId, pageData, profilePic, coverPhoto } = req.body;
 
@@ -279,7 +284,6 @@ app.post("/save-page", async (req, res) => {
 
     const parsedPageData = typeof pageData === "string" ? JSON.parse(pageData) : pageData;
 
-    // Use URLs sent from frontend
     if (profilePic) parsedPageData.profilePic = profilePic;
     if (coverPhoto) parsedPageData.coverPhoto = coverPhoto;
 
@@ -299,10 +303,7 @@ app.post("/save-page", async (req, res) => {
   }
 });
 
-/**
- * GET /card/:tagId
- * Public endpoint to fetch profile card
- */
+// ── GET /card/:tagId ───────────────────────────────────────
 app.get("/card/:tagId", async (req, res) => {
   try {
     const tagDoc = await db.collection("tags").doc(req.params.tagId).get();

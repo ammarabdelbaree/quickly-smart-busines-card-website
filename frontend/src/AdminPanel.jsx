@@ -3,8 +3,6 @@ import axios from "axios";
 import "./AdminPanel.css";
 
 const API = process.env.REACT_APP_API_BASE_URL;
-const SECRET = "oMaRwAleeD83%47@Quicklybirth";
-const authHeaders = { headers: { "x-admin-secret": SECRET } };
 
 // ─────────────────────────────────────────────
 // STATUS BADGE
@@ -23,19 +21,26 @@ function LoginScreen({ onLogin }) {
   const [secret, setSecret]   = useState("");
   const [error, setError]     = useState("");
   const [shaking, setShaking] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-const attempt = async () => {
-  try {
-    await axios.post(`${API}/admin/login`, {}, {
-      headers: { "x-admin-secret": secret }
-    });
-    onLogin();
-  } catch (err) {
-    setError("Invalid admin secret.");
-    setShaking(true);
-    setTimeout(() => setShaking(false), 500);
-  }
-};
+  const attempt = async () => {
+    if (!secret.trim()) return;
+    setLoading(true);
+    try {
+      await axios.post(
+        `${API}/admin/login`,
+        {},
+        { headers: { "x-admin-secret": secret } }
+      );
+      onLogin(secret); // pass the valid secret up so Panel can reuse it
+    } catch (err) {
+      setError("Invalid admin secret.");
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleKey = (e) => { if (e.key === "Enter") attempt(); };
 
@@ -55,7 +60,9 @@ const attempt = async () => {
           autoFocus
         />
         {error && <p className="ap-error-txt">{error}</p>}
-        <button className="ap-btn-primary" onClick={attempt}>Enter Panel</button>
+        <button className="ap-btn-primary" onClick={attempt} disabled={loading}>
+          {loading ? "Checking..." : "Enter Panel"}
+        </button>
       </div>
     </div>
   );
@@ -64,7 +71,9 @@ const attempt = async () => {
 // ─────────────────────────────────────────────
 // MAIN PANEL
 // ─────────────────────────────────────────────
-function Panel() {
+function Panel({ secret }) {
+  const authHeaders = { headers: { "x-admin-secret": secret } };
+
   const [tags, setTags]         = useState([]);
   const [search, setSearch]     = useState("");
   const [newTagId, setNewTagId] = useState("");
@@ -224,9 +233,9 @@ function Panel() {
 // ROOT: login gate
 // ─────────────────────────────────────────────
 function AdminPanel() {
-  const [authed, setAuthed] = useState(false);
-  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
-  return <Panel />;
+  const [secret, setSecret] = useState(null); // null = not authed yet
+  if (!secret) return <LoginScreen onLogin={(s) => setSecret(s)} />;
+  return <Panel secret={secret} />;
 }
 
 export default AdminPanel;
