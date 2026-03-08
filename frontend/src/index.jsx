@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import App from "./App";
-import "./App.css"; // Your global styles & Tailwind
+import App from "../src/components/App";
+import "../src/style/App.css"; // Your global styles & Tailwind
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 

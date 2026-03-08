@@ -142,6 +142,26 @@ app.post("/admin/deactivate-tag", async (req, res) => {
   }
 });
 
+
+app.post("/admin/delete-tag", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const tagId = req.body.tagId?.trim().toLowerCase();
+  if (!tagId) return res.status(400).json({ error: "Tag ID required" });
+
+  try {
+    const tagRef = db.collection("tags").doc(tagId);
+    const tagDoc = await tagRef.get();
+    if (!tagDoc.exists) return res.status(404).json({ error: "Tag not found" });
+
+    await db.collection('tags').doc(tagId).delete();
+    res.json({ message: "Tag deleted", tagId });
+  } catch (err) {
+    console.error("Error deleting tag:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ── POST /admin/reactivate-tag ─────────────────────────────
 app.post("/admin/reactivate-tag", async (req, res) => {
   if (!requireAdmin(req, res)) return;
@@ -255,7 +275,7 @@ app.post("/claim-tag", async (req, res) => {
       EMAIL_IN_USE: 400,
     };
     const status = errorMap[err.message] || 500;
-    const msg = errorMap[err.message] ? err.message : "Internal Server Error";
+    const msg = errorMap[err.message] ? err.message : err.message || "Internal Server Error";
     res.status(status).json({ error: msg });
   }
 });
