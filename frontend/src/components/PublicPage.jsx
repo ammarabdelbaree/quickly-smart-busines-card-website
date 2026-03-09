@@ -228,7 +228,7 @@ const PublicPage = React.memo(({ tagId, onAdminLogin, onBack, handleRetry }) => 
             <>
             <div className="divider-gradient"></div>
             <div className="qr-section">
-              <img src={qrCodeUrl} alt="QR Code" className="qr-code" />
+              <img src={qrCodeUrl} alt="QR Code" className="qr-code" onClick={handleShare} style={{ cursor: "pointer" }} />
               <div className="qr-links">
                 <p onClick={handleShare} style={{ cursor: "pointer" }}>{s.shareProfile}</p>
                 <p onClick={downloadQrCode} style={{ cursor: "pointer" }}>{s.downloadQr}</p>
