@@ -37,7 +37,6 @@ function Home() {
 
         <div className="third">
           <h2>{s.cta.title}</h2>
-          <p>{s.cta.description}</p>
           <label>{s.cta.emailLabel}</label>
           <input type="email" placeholder={s.cta.emailPlaceholder} required />
           <button>{s.cta.createAccount}</button>

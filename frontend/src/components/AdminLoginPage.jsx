@@ -35,7 +35,7 @@ function AdminLoginPage({ onLoginSuccess, onBack }) {
   return (
     <div className="page admin-login-page animate-fade-in">
       <nav className="setup-nav">
-        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center" }}>
           <button
             onClick={onBack}
             className="logout-btn"

@@ -155,7 +155,7 @@
 }
 
 [dir="rtl"] .ap-header {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 .ap-header-title {
@@ -194,7 +194,7 @@
 }
 
 [dir="rtl"] .ap-flash {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 .ap-flash.success {
@@ -241,7 +241,7 @@
 }
 
 [dir="rtl"] .ap-row {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 .ap-row .ap-input {

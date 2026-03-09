@@ -1,5 +1,7 @@
-// SetupPage.jsx
 import React, { useState, useEffect } from "react";
+import { FaFacebook, FaInstagram, FaLinkedin, FaWhatsapp, FaTelegram, FaSnapchat, FaYoutube, FaLink } from "react-icons/fa";
+import { FaXTwitter, FaThreads } from "react-icons/fa6";
+import { TiDeleteOutline } from "react-icons/ti";
 import axios from "axios";
 import { auth, storage } from "./firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -10,8 +12,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
   const s = t.setup;
 
   const [pageData, setPageData] = useState({
-    title: "", name: "", phone: "", description: "",
-    email: "", socialMedia: [], links: [],
+    name: "", title: "", phone: "", email: "", phones: [], emails: [], description: "", links: [],
   });
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [coverPhotoFile, setCoverPhotoFile] = useState(null);
@@ -37,10 +38,14 @@ function SetupPage({ tagId, onSave, onLogout }) {
           setCoverPhotoFile(res.data?.coverPhoto || null);
         }
         setPageData({
-          name: serverData.name || "", title: serverData.title || "",
-          phone: serverData.phone || "", email: serverData.email || "",
+          name: serverData.name || "",
+          title: serverData.title || "",
+          phone: serverData.phone || "",
+          email: serverData.email || "",
+          phones: serverData.phones || [],
+          emails: serverData.emails || [],
           description: serverData.description || "",
-          socialMedia: serverData.socialMedia || [], links: serverData.links || [],
+          links: serverData.links || [],
         });
       } catch {
         const draftJson = localStorage.getItem(`setup_draft_${tagId}`);
@@ -101,11 +106,37 @@ function SetupPage({ tagId, onSave, onLogout }) {
     }
   };
 
-  const addItem = (list) => setPageData({ ...pageData, [list]: [...pageData[list], { platform: "", text: "", url: "" }] });
+  const addSocial = (platform) => {
+    setPageData({
+      ...pageData,
+      links: [
+        ...pageData.links,
+        { platform: platform, url: "", isCustomLink: platform === "link" }
+      ]
+    });
+  };
+
+  const getIcon = (platform) => {
+    switch (platform) {
+      case "facebook": return <FaFacebook size={24} />;
+      case "instagram": return <FaInstagram size={24} />;
+      case "linkedin": return <FaLinkedin size={24} />;
+      case "whatsapp": return <FaWhatsapp size={24} />;
+      case "instapay": return <img className="sm-icons add-btn" style={{ width: "22px", height: "22px" }} src="https://upload.wikimedia.org/wikipedia/commons/2/20/InstaPay_Logo.png" alt="instapay" />;
+      case "telegram": return <FaTelegram size={24} />;
+      case "twitter": return <FaXTwitter size={24} />;
+      case "threads": return <FaThreads size={24} />;
+      case "snapchat": return <FaSnapchat size={24} />;
+      case "youtube": return <FaYoutube size={24} />;
+      default: return <FaLink size={24} />;
+    }
+  };
+
   const removeItem = (list, index) => {
     const newList = [...pageData[list]]; newList.splice(index, 1);
     setPageData({ ...pageData, [list]: newList });
   };
+
   const updateItem = (list, index, field, value) => {
     const newList = [...pageData[list]]; newList[index][field] = value;
     setPageData({ ...pageData, [list]: newList });
@@ -121,7 +152,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
   return (
     <div className="page setup-page animate-fade-in">
       <nav className="setup-nav">
-        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center" }}>
           <button onClick={onLogout} className="logout-btn"
             style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.9rem" }}>
             {t.common.viewProfile}
@@ -167,49 +198,121 @@ function SetupPage({ tagId, onSave, onLogout }) {
         <label>{s.descriptionLabel}</label>
         <textarea value={pageData.description} onChange={(e) => setPageData({ ...pageData, description: e.target.value })} />
       </div>
+
       <div className="form-group">
-        <label>{s.emailLabel}</label>
-        <input value={pageData.email} onChange={(e) => setPageData({ ...pageData, email: e.target.value })} />
-      </div>
-      <div className="form-group">
-        <label>{s.phoneLabel}</label>
-        <input value={pageData.phone} onChange={(e) => setPageData({ ...pageData, phone: e.target.value })} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <label>{s.emailLabel}</label>
+          <label
+            style={{ textDecoration: "underline", fontSize: "12px", cursor: "pointer" }}
+            onClick={() => setPageData({ ...pageData, emails: [...pageData.emails, { address: "" }] })}
+          >
+            {s.emailAddLabel}
+          </label>
+        </div>
+
+        <input
+          value={pageData.email}
+          onChange={(e) => {
+            const updatedEmails = [...pageData.emails];
+            updatedEmails[0] = { address: e.target.value };
+            setPageData({ ...pageData, email: e.target.value, emails: updatedEmails });
+          }}
+        />
+
+        {pageData.emails.map((em, i) =>
+          i === 0 ? null : (
+            <div key={i} className="input-with-remove">
+              <input
+                value={em.address}
+                onChange={(e) => updateItem("emails", i, "address", e.target.value)}
+              />
+              <button onClick={() => removeItem("emails", i)} className="remove-btn">
+                <TiDeleteOutline size={30} />
+              </button>
+            </div>
+          )
+        )}
       </div>
 
-      {/* Social Media */}
+      <div className="form-group">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <label>{s.phoneLabel}</label>
+          <label
+            style={{ textDecoration: "underline", fontSize: "12px", cursor: "pointer" }}
+            onClick={() => setPageData({ ...pageData, phones: [...pageData.phones, { number: "" }] })}
+          >
+            {s.phoneAddLabel}
+          </label>
+        </div>
+        <input
+          value={pageData.phone}
+          onChange={(e) => {
+            const updatedPhones = [...pageData.phones];
+            updatedPhones[0] = { number: e.target.value };
+            setPageData({ ...pageData, phone: e.target.value, phones: updatedPhones });
+          }}
+        />
+        {pageData.phones.map((ph, i) =>
+          i === 0 ? null : (
+            <div key={i} className="input-with-remove">
+              <input
+                value={ph.number}
+                onChange={(e) => updateItem("phones", i, "number", e.target.value)}
+              />
+              <button onClick={() => removeItem("phones", i)} className="remove-btn">
+                <TiDeleteOutline size={30} />
+              </button>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Links */}
       <section className="setup-section">
         <div className="section-header">
           <h3>{s.socialMediaTitle}</h3>
-          <button className="add-btn" onClick={() => addItem("socialMedia")}>{s.addBtn}</button>
-        </div>
-        {pageData.socialMedia.map((sm, i) => (
-          <div key={i} className="dynamic-row">
-            <select value={sm.platform} onChange={(e) => updateItem("socialMedia", i, "platform", e.target.value)}>
-              <option value="">{s.platformPlaceholder}</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Instagram">Instagram</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="Twitter">Twitter/X</option>
-              <option value="TikTok">TikTok</option>
-              <option value="WhatsApp">WhatsApp</option>
-            </select>
-            <input placeholder={s.urlPlaceholder} value={sm.url} onChange={(e) => updateItem("socialMedia", i, "url", e.target.value)} />
-            <button onClick={() => removeItem("socialMedia", i)} className="remove-btn">×</button>
+          <div className="sm-icons">
+            <button className="add-btn" onClick={() => addSocial("facebook")}><FaFacebook size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("instagram")}><FaInstagram size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("linkedin")}><FaLinkedin size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("whatsapp")}><FaWhatsapp size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("instapay")}>{getIcon("instapay")}</button>
+            <button className="add-btn" onClick={() => addSocial("telegram")}><FaTelegram size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("snapchat")}><FaSnapchat size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("twitter")}><FaXTwitter size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("threads")}><FaThreads size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("youtube")}><FaYoutube size={22} /></button>
+            <button className="add-btn" onClick={() => addSocial("link")}><FaLink size={22} /></button>
           </div>
-        ))}
-      </section>
-
-      {/* Custom Links */}
-      <section className="setup-section">
-        <div className="section-header">
-          <h3>{s.customLinksTitle}</h3>
-          <button className="add-btn" onClick={() => addItem("links")}>{s.addBtn}</button>
         </div>
-        {pageData.links.map((ln, i) => (
+
+        {pageData.links.map((sm, i) => (
           <div key={i} className="dynamic-row">
-            <input placeholder={s.linkLabelPlaceholder} value={ln.text} onChange={(e) => updateItem("links", i, "text", e.target.value)} />
-            <input placeholder={s.linkUrlPlaceholder} value={ln.url} onChange={(e) => updateItem("links", i, "url", e.target.value)} />
-            <button onClick={() => removeItem("links", i)} className="remove-btn">×</button>
+            <div className="sm-icons">
+              <div className="add-btn sm-icons">{getIcon(sm.platform)}</div>
+            </div>
+
+            <>
+              {sm.isCustomLink && (
+                <input
+                  placeholder={s.linkLabelPlaceholder}
+                  value={sm.platform === "link" ? "" : sm.platform}
+                  onChange={(e) => updateItem("links", i, "platform", e.target.value)}
+                />
+              )}
+
+              <input
+                placeholder={s.urlPlaceholder}
+                value={sm.url}
+                dir="ltr"
+                style={{ textAlign: "left" }}
+                onChange={(e) => updateItem("links", i, "url", e.target.value)}
+              />
+            </>
+
+            <button onClick={() => removeItem("links", i)} className="remove-btn">
+              <TiDeleteOutline size={30} />
+            </button>
           </div>
         ))}
       </section>

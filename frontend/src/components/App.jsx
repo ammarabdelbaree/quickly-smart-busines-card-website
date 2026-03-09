@@ -29,6 +29,8 @@ const VIEWS = {
   PUBLIC: "public",
 };
 
+let isPublic = false;
+
 // Inner component so it can use useTranslation()
 function AppInner() {
   const { t } = useTranslation();
@@ -77,7 +79,7 @@ function AppInner() {
       setView(user && user.uid === tagData.ownerId ? VIEWS.SETUP : VIEWS.LOGIN);
       return;
     }
-    if (tagData.isSetup) setView(VIEWS.PUBLIC);
+    if (tagData.isSetup) {setView(VIEWS.PUBLIC); isPublic = true;}
   }, [authLoaded, tagData, user, tagId, isAdminPanel]);
 
   if (isAdminPanel) return <AdminPanel />;
@@ -146,7 +148,7 @@ function AppInner() {
 function App() {
   const isAdminPanel = window.location.pathname === "/admin";
   return (
-    <LanguageProvider defaultLang="ar">
+    <LanguageProvider defaultLang={isPublic ? "en" : "ar"}>
       {!isAdminPanel && (
         <div style={{ position: "fixed", top: 12, right: 12, zIndex: 9999 }}>
           <LanguageSwitcher />

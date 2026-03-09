@@ -335,16 +335,31 @@ button:active {
 
 /* Add / Remove dynamic rows */
 .add-btn {
-  width: auto;
-  min-width: 80px;
-  min-height: 36px;
-  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 0 0 0.2px;
   font-size: 0.82rem;
   background: var(--gradient-soft);
+  border-radius: 50%;
   border: 1px solid rgba(168, 85, 247, 0.2);
-  color: var(--primary);
-  border-radius: var(--radius-sm);
+  color: #ec43b6;
   margin: 0;
+}
+
+.sm-icons button {
+  width: auto;
+}
+
+.sm-icons {
+  max-width: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
 .add-btn:hover {
@@ -354,23 +369,73 @@ button:active {
 }
 
 .remove-btn {
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-  background: rgba(220, 38, 38, 0.12);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  color: #f87171;
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 31px;
+  padding: 0 0 0 0.2px;
+  background: rgb(220 38 38 / 0%);
+  border: none;
+  color: #ff006a;
+  box-shadow: none;
   font-size: 1rem;
   flex-shrink: 0;
   margin: 0;
 }
 
+/* Fix: removed .ph-rem-btn with translateX hack — button is now a natural flex sibling */
+
 .remove-btn:hover {
-  background: rgba(220, 38, 38, 0.22);
+  background: none;
   transform: none;
   box-shadow: none;
+  color: #ff4d94;
+}
+
+/* Input field with inline remove button */
+.input-with-remove {
+  position: relative;
+  flex: 1;
+}
+
+.input-with-remove input {
+  width: 100%;
+  padding-right: 40px;
+  margin: 0;
+}
+
+[dir="rtl"] .input-with-remove input {
+  padding-right: clamp(13px, 3vw, 16px);
+  padding-left: 40px;
+}
+
+.input-with-remove .remove-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 28px;
+  min-height: unset;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  color: #ff006a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[dir="rtl"] .input-with-remove .remove-btn {
+  right: unset;
+  left: 8px;
+}
+
+.input-with-remove .remove-btn:hover {
+  background: none;
+  transform: translateY(-50%);
+  color: #ff4d94;
 }
 
 /* Text-only buttons (switch modes, etc.) */
@@ -429,12 +494,12 @@ input,
 textarea,
 select {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
   background: var(--bg-input);
   border: 1px solid var(--border-soft);
   color: var(--text-main);
   padding: clamp(11px, 2.5vw, 13px) clamp(13px, 3vw, 16px);
-  margin: 4px 0;
+  margin: 0 0 8px 0;
   border-radius: var(--radius-md);
   font-family: inherit;
   font-size: clamp(0.875rem, 2vw, 0.95rem);
@@ -512,9 +577,11 @@ textarea {
 
 .section-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: clamp(10px, 2vw, 14px);
+  gap: 2rem;
+  margin-bottom: clamp(16px, 3vw, 25px);
 }
 
 .setup-section {
@@ -736,8 +803,8 @@ textarea {
 }
 
 .error-box {
-  background: rgba(220, 38, 38, 0.07);
-  border: 1px solid rgba(220, 38, 38, 0.18);
+  background: rgba(255, 0, 106, 0.07);
+  border: 1px solid rgba(255, 0, 106, 0.18);
   border-radius: var(--radius-md);
   padding: clamp(14px, 3vw, 18px);
 }
@@ -774,7 +841,7 @@ textarea {
 
 [dir="rtl"] .secure-text {
   letter-spacing: 0;
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 /* ── 12. AUTH PAGES (Register / Login) ──────────────────────── */
@@ -825,7 +892,7 @@ textarea {
   background: rgba(220, 38, 38, 0.09);
   border: 1px solid rgba(220, 38, 38, 0.2);
   border-radius: var(--radius-md);
-  color: #f87171;
+  color: #ff006a;
   font-weight: 600;
   font-size: 0.875rem;
   padding: 12px 16px;
@@ -950,7 +1017,7 @@ textarea {
 .error-screen {
   height: 100vh;
   height: 100dvh;
-  max-width: 520px;
+  max-width: 525px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -967,6 +1034,10 @@ textarea {
   font-size: clamp(0.95rem, 2.5vw, 1.1rem);
   font-weight: 700;
   color: var(--primary);
+  margin: 0;
+}
+
+.error-screen p {
   margin: 0;
 }
 
@@ -987,7 +1058,7 @@ textarea {
 }
 
 .error-screen h1 {
-  color: #f87171;
+  color: #ff006a;
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
@@ -1042,9 +1113,8 @@ textarea {
 
 /* Flip inline flexbox row order for RTL nav/rows */
 [dir="rtl"] .setup-nav > div,
-[dir="rtl"] .section-header,
 [dir="rtl"] .code-display-group {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 /* Keep code always LTR inside RTL layout */
