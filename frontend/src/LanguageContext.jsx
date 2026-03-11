@@ -3,7 +3,7 @@
 // Every page calls useTranslation() to get strings + helpers.
 
 import { createContext, useContext, useState } from "react";
-import { translations } from "../src/i18n";
+import { translations } from "./i18n";
 
 const LanguageContext = createContext(null);
 

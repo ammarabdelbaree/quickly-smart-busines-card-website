@@ -203,12 +203,12 @@ const PublicPage = React.memo(({ tagId, onAdminLogin, onBack, handleRetry }) => 
     <div className="public-page-container animate-fade-in">
       <div className="card-wrapper animate-fade-in">
         <div className="cover-photo"
-          style={{ backgroundImage: `url(${data.coverPhoto || "/default-cover.jpg"})` }}
+          style={{ backgroundImage: `url(${data.coverPhoto ? data.coverPhoto + "?t=" + Date.now() : "/default-cover.jpg"})` }}
           role="img" aria-label="Cover photo">
         </div>
           <div className="profile-container">
             <img
-              src={data.profilePic || "/imgs/default-avatar.png"}
+              src={data.profilePic ? data.profilePic + "?t=" + Date.now() : "/imgs/default-avatar.png"}
               alt={`${data.name} profile`} className="profile-pic lazy-load"
               loading="lazy" onLoad={(e) => e.currentTarget.classList.add("loaded")}
             />

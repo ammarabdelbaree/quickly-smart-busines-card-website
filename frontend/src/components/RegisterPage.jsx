@@ -1,9 +1,9 @@
 // RegisterPage.jsx
 import React, { useState } from "react";
 import axios from "axios";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./firebase";
+import { supabase } from "./supabase";
 import { useTranslation } from "../LanguageContext";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 function RegisterPage({ tagId, onAdminCreated }) {
   const [email, setEmail] = useState("");
@@ -19,7 +19,7 @@ function RegisterPage({ tagId, onAdminCreated }) {
 
   const validateForm = () => {
     if (!email.includes("@")) return s.errors.invalidEmail;
-    if (password.length < 6) return s.errors.shortPassword;
+    if (isCreating && password.length < 6) return s.errors.shortPassword;
     if (!verificationCode) return s.errors.noCode;
     return null;
   };
@@ -32,6 +32,7 @@ function RegisterPage({ tagId, onAdminCreated }) {
     try {
       setLoading(true);
       setErrorMsg("");
+
       await axios.post(`${process.env.REACT_APP_API_BASE_URL}/claim-tag`, {
         tagId,
         code: verificationCode.trim().toUpperCase(),
@@ -39,7 +40,14 @@ function RegisterPage({ tagId, onAdminCreated }) {
         password,
         isExistingUser: !isCreating,
       });
-      await signInWithEmailAndPassword(auth, email, password);
+
+      // Sign in immediately — no email confirmation required
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setErrorMsg(s.errors.generic);
+        return;
+      }
+
       onAdminCreated();
     } catch (err) {
       const serverMsg = err.response?.data?.error;
@@ -102,9 +110,7 @@ function RegisterPage({ tagId, onAdminCreated }) {
                 className="toggle-password"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword
-                  ? <i className="fa-regular fa-eye"></i>
-                  : <i className="fa-regular fa-eye-slash"></i>}
+                {showPassword ? <FaEye /> : <FaEyeSlash />}
               </button>
             </div>
           </div>

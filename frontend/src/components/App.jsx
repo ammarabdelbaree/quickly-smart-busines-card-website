@@ -1,8 +1,7 @@
 // App.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
+import { supabase } from "./supabase";
 
 import { LanguageProvider, useTranslation } from "../LanguageContext";
 import LanguageSwitcher from "../LanguageSwitcher";
@@ -31,7 +30,6 @@ const VIEWS = {
 
 let isPublic = false;
 
-// Inner component so it can use useTranslation()
 function AppInner() {
   const { t } = useTranslation();
   const s = t.app;
@@ -53,17 +51,23 @@ function AppInner() {
         `${process.env.REACT_APP_API_BASE_URL}/tag/${tagId}`
       );
       setTagData(response.data);
-    } catch (error) {
+    } catch {
       setView(VIEWS.ERROR);
     }
   }, [tagId]);
 
+  // Listen to Supabase auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setAuthLoaded(true);
     });
-    return unsubscribe;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => { fetchTag(); }, [fetchTag]);
@@ -76,10 +80,10 @@ function AppInner() {
     if (tagData.status === "deactivated") { setView(VIEWS.DEACTIVATED); return; }
     if (!tagData.ownerId && !tagData.isSetup) { setView(VIEWS.FIRST_SCAN); return; }
     if (tagData.ownerId && !tagData.isSetup) {
-      setView(user && user.uid === tagData.ownerId ? VIEWS.SETUP : VIEWS.LOGIN);
+      setView(user && user.id === tagData.ownerId ? VIEWS.SETUP : VIEWS.LOGIN);
       return;
     }
-    if (tagData.isSetup) {setView(VIEWS.PUBLIC); isPublic = true;}
+    if (tagData.isSetup) { setView(VIEWS.PUBLIC); isPublic = true; }
   }, [authLoaded, tagData, user, tagId, isAdminPanel]);
 
   if (isAdminPanel) return <AdminPanel />;
@@ -144,7 +148,6 @@ function AppInner() {
   );
 }
 
-// Root: wrap everything in LanguageProvider once
 function App() {
   const isAdminPanel = window.location.pathname === "/admin";
   return (

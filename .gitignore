@@ -1,5 +1,14 @@
-# Environment variables
 node_modules/
+
 .env
-.txt
+*.env
+
 serviceAccountKey.json
+*serviceAccountKey*.json
+
+build/
+dist/
+
+.txt
+.DS_Store
+*.log

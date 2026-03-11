@@ -51,7 +51,7 @@ export const translations = {
         createAccount: "Create Account",
       },
       footer: {
-        copyright: "© Quickly 2024",
+        copyright: `© Quickly ${new Date().getFullYear()}`,
       },
     },
 
@@ -87,6 +87,10 @@ export const translations = {
       submitExisting: "Login & Claim",
       switchToLogin: "Already have a Quickly account? Log in",
       switchToRegister: "New user? Create an account instead",
+      confirmTitle: "Check Your Email",
+      confirmSubtitle: "Your account has been created!",
+      confirmHint: "We sent a confirmation link to",
+      confirmNote: "Please click the link in the email to activate your account, then come back and log in.",
       errors: {
         invalidEmail: "Please enter a valid email address.",
         shortPassword: "Password must be at least 6 characters.",
@@ -94,6 +98,7 @@ export const translations = {
         invalidCode: "The verification code is incorrect.",
         emailInUse: "An account with this email already exists.",
         tagClaimed: "This tag has already been claimed by someone else.",
+        emailNotConfirmed: "Please confirm your email first. Check your inbox.",
         generic: "Email or password are incorrect. Please try again.",
       },
     },
@@ -106,12 +111,18 @@ export const translations = {
       emailPlaceholder: "name@company.com",
       passwordLabel: "Password",
       signIn: "Sign In",
-      forgotPassword: "Don't remember your password? Contact support.",
+      forgotPassword: "Forgot your password?",
+      forgotHint: "Enter your email and we'll send you a reset link.",
+      sendResetEmail: "Send Reset Email",
+      resetEmailSent: "✅ Check your inbox! A password reset link has been sent.",
       errors: {
         emptyFields: "Please enter both email and password.",
         invalidCredential: "Incorrect email or password.",
+        emailNotConfirmed: "Please confirm your email before logging in. Check your inbox.",
         tooManyRequests: "Too many failed attempts. Try again later.",
         generic: "Login failed. Please try again.",
+        invalidEmail: "Please enter a valid email address.",
+        resetFailed: "Failed to send reset email. Please try again.",
       },
     },
 
@@ -138,6 +149,7 @@ export const translations = {
       errors: {
         notLoggedIn: "You must be logged in.",
         missingFields: "Name and phone number are required.",
+        imageTooLarge: "Image must be 1.5MB or smaller.",
         saveFailed: "Failed to save. Please try again.",
       },
     },
@@ -256,7 +268,7 @@ export const translations = {
         createAccount: "إنشاء حساب",
       },
       footer: {
-        copyright: "© Quickly 2024",
+        copyright: `© Quickly ${new Date().getFullYear()}`,
       },
     },
 
@@ -292,6 +304,10 @@ export const translations = {
       submitExisting: "تسجيل الدخول والمطالبة",
       switchToLogin: "هل لديك حساب Quickly بالفعل؟ سجّل دخولك",
       switchToRegister: "مستخدم جديد؟ أنشئ حساباً بدلاً من ذلك",
+      confirmTitle: "تحقق من بريدك الإلكتروني",
+      confirmSubtitle: "تم إنشاء حسابك بنجاح!",
+      confirmHint: "أرسلنا رابط تأكيد إلى",
+      confirmNote: "يرجى النقر على الرابط في البريد الإلكتروني لتفعيل حسابك، ثم العودة لتسجيل الدخول.",
       errors: {
         invalidEmail: "يرجى إدخال عنوان بريد إلكتروني صالح.",
         shortPassword: "يجب أن تتكوّن كلمة المرور من 6 أحرف على الأقل.",
@@ -299,6 +315,7 @@ export const translations = {
         invalidCode: "رمز التحقق غير صحيح.",
         emailInUse: "يوجد حساب بهذا البريد الإلكتروني بالفعل.",
         tagClaimed: "تمت المطالبة بهذه البطاقة من قِبَل شخص آخر.",
+        emailNotConfirmed: "يرجى تأكيد بريدك الإلكتروني أولاً. تحقق من بريدك الوارد.",
         generic: "البريد الإلكتروني أو كلمة المرور غير صحيحة. حاول مجدداً.",
       },
     },
@@ -311,12 +328,18 @@ export const translations = {
       emailPlaceholder: "name@company.com",
       passwordLabel: "كلمة المرور",
       signIn: "تسجيل الدخول",
-      forgotPassword: "لا تتذكر كلمة مرورك؟ تواصل مع الدعم.",
+      forgotPassword: "نسيت كلمة المرور؟",
+      forgotHint: "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين.",
+      sendResetEmail: "إرسال رابط إعادة التعيين",
+      resetEmailSent: "✅ تحقق من بريدك الوارد! تم إرسال رابط إعادة تعيين كلمة المرور.",
       errors: {
         emptyFields: "يرجى إدخال البريد الإلكتروني وكلمة المرور.",
         invalidCredential: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+        emailNotConfirmed: "يرجى تأكيد بريدك الإلكتروني قبل تسجيل الدخول. تحقق من بريدك الوارد.",
         tooManyRequests: "محاولات فاشلة كثيرة. حاول مجدداً لاحقاً.",
         generic: "فشل تسجيل الدخول. حاول مجدداً.",
+        invalidEmail: "يرجى إدخال عنوان بريد إلكتروني صالح.",
+        resetFailed: "فشل إرسال البريد الإلكتروني. حاول مجدداً.",
       },
     },
 
@@ -343,6 +366,7 @@ export const translations = {
       errors: {
         notLoggedIn: "يجب أن تكون مسجّلاً للدخول.",
         missingFields: "الاسم ورقم الهاتف مطلوبان.",
+        imageTooLarge: "يجب أن لا يتجاوز حجم الصورة 1.5 ميغابايت.",
         saveFailed: "فشل الحفظ. حاول مجدداً.",
       },
     },

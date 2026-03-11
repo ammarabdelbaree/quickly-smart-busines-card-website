@@ -1,6 +1,7 @@
 // FirstScanPage.jsx
 import { useState } from "react";
 import { useTranslation } from "../LanguageContext";
+import { FaCheck, FaRegCopy } from "react-icons/fa";
 
 export default function FirstScanPage({ tagId, verificationCode, onProceed }) {
   const [copied, setCopied] = useState(false);
@@ -41,13 +42,13 @@ export default function FirstScanPage({ tagId, verificationCode, onProceed }) {
                 title={s.copyTitle}
               >
                 {copied
-                  ? <i className="fa-solid fa-check"></i>
-                  : <i className="fa-regular fa-copy"></i>}
+                  ? <FaCheck />
+                  : <FaRegCopy />}
               </button>
             </div>
             <p className="note-paragraph">
-              {/* <strong>{s.keepCode}</strong> */}
-              {/* <br /> */}
+              <strong>{s.keepCode}</strong>
+              <br />
               {s.keepCodeNote}
             </p>
           </div>
@@ -67,7 +68,6 @@ export default function FirstScanPage({ tagId, verificationCode, onProceed }) {
         >
           {s.claimTag}
         </button>
-        <p className="secure-text">{s.secureText}</p>
       </footer>
     </div>
   );

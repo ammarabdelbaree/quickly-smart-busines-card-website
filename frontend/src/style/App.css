@@ -819,6 +819,7 @@ textarea {
 .action-footer {
   display: flex;
   flex-direction: column;
+  padding: 0;
   gap: 6px;
 }
 

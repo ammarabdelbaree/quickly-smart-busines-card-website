@@ -1,7 +1,6 @@
 // AdminLoginPage.jsx
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./firebase";
+import { supabase } from "./supabase";
 import { useTranslation } from "../LanguageContext";
 
 function AdminLoginPage({ onLoginSuccess, onBack }) {
@@ -10,10 +9,15 @@ function AdminLoginPage({ onLoginSuccess, onBack }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Forgot password state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
   const { t } = useTranslation();
   const s = t.adminLogin;
-
-  const contactSupport = () => window.open("https://wa.me/1234567890", "_blank");
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
@@ -22,13 +26,46 @@ function AdminLoginPage({ onLoginSuccess, onBack }) {
     setLoading(true);
     setErrorMsg("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes("Email not confirmed")) {
+          setErrorMsg(s.errors.emailNotConfirmed);
+        } else if (error.message.includes("Invalid login")) {
+          setErrorMsg(s.errors.invalidCredential);
+        } else {
+          setErrorMsg(s.errors.generic);
+        }
+        setLoading(false);
+        return;
+      }
       onLoginSuccess();
-    } catch (err) {
-      if (err.code === "auth/invalid-credential") setErrorMsg(s.errors.invalidCredential);
-      else if (err.code === "auth/too-many-requests") setErrorMsg(s.errors.tooManyRequests);
-      else setErrorMsg(s.errors.generic);
+    } catch {
+      setErrorMsg(s.errors.generic);
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!forgotEmail || !forgotEmail.includes("@")) {
+      setForgotError(s.errors.invalidEmail);
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError("");
+    setForgotMsg("");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail);
+      if (error) {
+        setForgotError(s.errors.resetFailed);
+      } else {
+        setForgotMsg(s.resetEmailSent);
+        setForgotEmail("");
+      }
+    } catch {
+      setForgotError(s.errors.resetFailed);
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -82,9 +119,40 @@ function AdminLoginPage({ onLoginSuccess, onBack }) {
           </button>
         </form>
 
+        {/* Forgot Password */}
         <div className="login-footer">
-          <p onClick={contactSupport} style={{ cursor: "pointer" }}>{s.forgotPassword}</p>
+          <button
+            className="text-btn"
+            onClick={() => { setShowForgot(!showForgot); setForgotMsg(""); setForgotError(""); }}
+          >
+            {s.forgotPassword}
+          </button>
         </div>
+
+        {showForgot && (
+          <div className="forgot-password-box">
+            {forgotMsg ? (
+              <p className="success-inline">{forgotMsg}</p>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="forgot-form">
+                <p className="forgot-hint">{s.forgotHint}</p>
+                {forgotError && <div className="error-banner">{forgotError}</div>}
+                <div className="form-group">
+                  <input
+                    type="email"
+                    placeholder={s.emailPlaceholder}
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn primary-btn" disabled={forgotLoading}>
+                  {forgotLoading ? t.common.processing : s.sendResetEmail}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

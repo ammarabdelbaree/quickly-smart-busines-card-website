@@ -3,7 +3,7 @@
    Refined glass card · RTL · Responsive · Premium feel
    ============================================================ */
 
-/* ── TOKENS (local, mirrors App.css) ───────────────────────── */
+/* ── TOKENS ─────────────────────────────────────────────────── */
 :root {
   --primary:        #a855f7;
   --secondary:      #ec4899;
@@ -78,31 +78,30 @@
   background-size: cover;
   background-position: center;
   background-color: #1a1a2e;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   position: relative;
 }
 
-/* Gradient fade at bottom of cover */
 .cover-photo::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   height: 60%;
   background: linear-gradient(to bottom, transparent, var(--card-bg));
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   pointer-events: none;
 }
 
 /* ── CARD CONTENT ───────────────────────────────────────────── */
 .card-content {
-  padding: clamp(2px, 1vw, 5px) clamp(14px, 4vw, 32px) clamp(28px, 6vw, 40px);
+  /* No fixed padding-top — profile-container negative margin handles the overlap */
+  padding: 0 clamp(14px, 4vw, 32px) clamp(28px, 6vw, 40px);
   position: relative;
   z-index: 10;
   overflow-x: hidden;
   word-break: break-word;
   overflow-wrap: break-word;
+  /* Use flex column so empty children take zero space */
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── PROFILE PICTURE ────────────────────────────────────────── */
@@ -110,7 +109,8 @@
   display: flex;
   justify-content: center;
   margin-top: clamp(-60px, -14vw, -70px);
-  margin-bottom: clamp(10px, 2.5vw, 14px);
+  /* Only add bottom gap if something follows */
+  margin-bottom: 0;
 }
 
 .profile-pic {
@@ -132,7 +132,15 @@
 /* ── IDENTITY ───────────────────────────────────────────────── */
 .identity-section {
   text-align: center;
-  margin-bottom: clamp(12px, 3vw, 18px);
+  /* Top gap from profile pic */
+  margin-top: clamp(10px, 2.5vw, 14px);
+  /* Bottom gap — collapses if next sibling is empty */
+  margin-bottom: 0;
+}
+
+/* Give identity bottom space only when there's content after it */
+.identity-section:not(:last-child) {
+  margin-bottom: clamp(10px, 2.5vw, 14px);
 }
 
 .user-name {
@@ -160,17 +168,23 @@
   color: var(--text-muted);
   font-size: clamp(0.875rem, 2.2vw, 0.95rem);
   line-height: 1.65;
-  margin-bottom: clamp(18px, 4vw, 26px);
   padding: 0 clamp(6px, 2vw, 14px);
+  /* Only take space when present */
+  margin-top: 0;
+  margin-bottom: clamp(14px, 3vw, 20px);
 }
 
 /* ── ACTION BUTTONS ─────────────────────────────────────────── */
 .action-buttons {
   display: flex;
   gap: clamp(8px, 2vw, 12px);
-  margin-bottom: clamp(20px, 4vw, 28px);
   flex-wrap: wrap;
+  /* Space below only when non-empty content follows */
+  margin-bottom: clamp(14px, 3vw, 20px);
 }
+
+/* Hide action-buttons entirely if it has no visible children */
+.action-buttons:empty { display: none; margin: 0; }
 
 .save-contact-btn {
   flex: 1;
@@ -207,11 +221,12 @@
 .contact-grid {
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 2.5vw, 14px);
-  margin: 0 0 clamp(26px, 6vw, 36px);
+  gap: clamp(8px, 2vw, 12px);
 }
 
-/* Phones: side by side, wrapping if needed */
+/* Hide entirely when empty — no gap left behind */
+.contact-grid:empty { display: none; }
+
 .phones {
   display: flex;
   flex-direction: row;
@@ -219,23 +234,24 @@
   gap: clamp(8px, 2vw, 10px);
 }
 
+/* No space if phones section is empty */
+.phones:empty { display: none; }
+
 .phones .contact-item {
-  flex: 1 1 calc(50% - 5px); /* two per row, fall to one if narrow */
+  flex: 1 1 calc(50% - 5px);
   min-width: 130px;
 }
 
-/* Emails: stacked full-width */
 .emails {
   display: flex;
   flex-direction: column;
   gap: clamp(8px, 2vw, 10px);
 }
 
-.emails .contact-item {
-  width: 100%;
-}
+.emails:empty { display: none; }
 
-/* Each contact row: icon pill on the left, text on the right */
+.emails .contact-item { width: 100%; }
+
 .contact-item {
   display: flex;
   flex-direction: row;
@@ -258,10 +274,7 @@
   box-sizing: border-box;
 }
 
-[dir="rtl"] .contact-item {
-  flex-direction: row;
-  text-align: right;
-}
+[dir="rtl"] .contact-item { flex-direction: row; text-align: right; }
 
 .contact-item:hover {
   transform: translateY(-3px);
@@ -272,7 +285,6 @@
 
 .contact-item:active { transform: scale(0.98); }
 
-/* Icon pill inside contact row */
 .icon-box {
   flex-shrink: 0;
   width: clamp(38px, 9vw, 44px);
@@ -284,9 +296,7 @@
   border: 1px solid var(--border-soft);
   background: rgba(255,255,255,0.05);
   color: var(--secondary);
-  transition:
-    background var(--dur-fast) ease,
-    box-shadow var(--dur-fast) ease;
+  transition: background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
 .contact-item:hover .icon-box {
@@ -294,7 +304,6 @@
   box-shadow: 0 0 14px rgba(168,85,247,0.25);
 }
 
-/* Contact label text — shows actual number / address */
 .contact-item span {
   flex: 1;
   font-size: clamp(0.78rem, 2vw, 0.88rem);
@@ -304,16 +313,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: ltr;           /* keep phone numbers & emails LTR even in RTL layout */
+  direction: ltr;
   text-align: left;
 }
 
-[dir="rtl"] .contact-item span {
-  text-align: right;
+[dir="rtl"] .contact-item span { text-align: right; }
+
+/* ── DIVIDER — only when links list has items ───────────────── */
+.links-list:not(:empty) {
+  margin-top: clamp(12px, 3vw, 18px);
 }
 
-/* Divider between contact grid and social links */
-.links-list::before {
+.links-list:not(:empty)::before {
   content: '';
   display: block;
   height: 1px;
@@ -324,24 +335,7 @@
     rgba(236,72,153,0.3) 70%,
     transparent
   );
-  margin-bottom: clamp(4px, 1.5vw, 8px);
-}
-
-.divider-gradient {
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(168,85,247,0.3) 30%,
-    rgba(236,72,153,0.3) 70%,
-    transparent
-  );
-  margin-bottom: clamp(4px, 1.5vw, 8px);
-}
-
-.sp-icon, .icon {
-    width: clamp(30px, 9vw, 40px);
-    height: clamp(30px, 6vw, 11px);
+  margin-bottom: clamp(12px, 3vw, 18px);
 }
 
 /* ── SOCIAL / LINK LIST ─────────────────────────────────────── */
@@ -349,8 +343,11 @@
   display: flex;
   flex-direction: column;
   gap: clamp(8px, 2vw, 11px);
-  margin-bottom: clamp(22px, 5vw, 30px);
+  /* No bottom margin — QR section has its own top margin */
+  margin-bottom: 0;
 }
+
+.links-list:empty { display: none; margin: 0; }
 
 .custom-link-card {
   display: flex;
@@ -370,11 +367,7 @@
     box-shadow var(--dur-fast) ease;
 }
 
-/* RTL: reverse the row */
-[dir="rtl"] .custom-link-card {
-  flex-direction: row;
-  text-align: right;
-}
+[dir="rtl"] .custom-link-card { flex-direction: row; text-align: right; }
 
 .custom-link-card:hover {
   transform: translateY(-3px);
@@ -405,10 +398,7 @@
   text-transform: capitalize;
 }
 
-[dir="rtl"] .link-text {
-  text-align: right;
-  letter-spacing: 0;
-}
+[dir="rtl"] .link-text { text-align: right; letter-spacing: 0; }
 
 .link-arrow {
   font-weight: 700;
@@ -418,34 +408,42 @@
   transition: transform var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
-[dir="rtl"] .link-arrow {
-  transform: scaleX(-1); /* flip arrow for RTL */
-}
+[dir="rtl"] .link-arrow { transform: scaleX(-1); }
 
 .custom-link-card:hover .link-arrow {
   transform: translateX(3px);
   color: var(--primary);
 }
 
-[dir="rtl"] .custom-link-card:hover .link-arrow {
-  transform: scaleX(-1) translateX(3px);
+[dir="rtl"] .custom-link-card:hover .link-arrow { transform: scaleX(-1) translateX(3px); }
+
+/* ── DIVIDER before QR ──────────────────────────────────────── */
+.divider-gradient {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(168,85,247,0.3) 30%,
+    rgba(236,72,153,0.3) 70%,
+    transparent
+  );
+  margin: clamp(18px, 4vw, 26px) 0 0;
 }
 
 /* ── QR SECTION ─────────────────────────────────────────────── */
 .qr-section {
   display: flex;
-  flex-direction: column; /* stack by default on mobile */
+  flex-direction: column;
   align-items: center;
   gap: clamp(14px, 3.5vw, 20px);
   padding: clamp(16px, 4vw, 22px);
   background: var(--glass-bg);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
-  margin: clamp(22px, 5vw, 32px) 0;
+  margin-top: clamp(14px, 3.5vw, 20px);
   text-align: center;
 }
 
-/* Side-by-side only on screens wide enough */
 @media (min-width: 380px) {
   .qr-section {
     flex-direction: row;
@@ -453,10 +451,7 @@
     justify-content: space-between;
     text-align: left;
   }
-  [dir="rtl"] .qr-section {
-    flex-direction: row;
-    text-align: right;
-  }
+  [dir="rtl"] .qr-section { flex-direction: row; text-align: right; }
   .qr-links { align-items: flex-start; }
   [dir="rtl"] .qr-links { align-items: flex-start; }
   .qr-links p { text-align: left; }
@@ -485,9 +480,7 @@
   flex: 1;
 }
 
-[dir="rtl"] .qr-links {
-  align-items: flex-start;
-}
+[dir="rtl"] .qr-links { align-items: flex-start; }
 
 .qr-links p {
   margin: 0;
@@ -504,26 +497,16 @@
   text-align: left;
 }
 
-[dir="rtl"] .qr-links p {
-  letter-spacing: 0;
-  text-transform: none;
-  text-align: right;
-}
+[dir="rtl"] .qr-links p { letter-spacing: 0; text-transform: none; text-align: right; }
 
-.qr-links p:hover {
-  color: var(--primary);
-  transform: translateX(3px);
-}
-
-[dir="rtl"] .qr-links p:hover {
-  transform: translateX(-3px);
-}
+.qr-links p:hover { color: var(--primary); transform: translateX(3px); }
+[dir="rtl"] .qr-links p:hover { transform: translateX(-3px); }
 
 /* ── ADMIN / FOOTER ─────────────────────────────────────────── */
 .login-footer {
   display: flex;
   justify-content: center;
-  margin-top: clamp(18px, 4vw, 26px);
+  margin-top: clamp(14px, 3.5vw, 22px);
 }
 
 .admin-btn {
@@ -544,15 +527,10 @@
   margin: 0;
 }
 
-.admin-btn:hover {
-  color: var(--text-muted);
-  transform: none;
-  box-shadow: none;
-  filter: none;
-}
+.admin-btn:hover { color: var(--text-muted); transform: none; box-shadow: none; filter: none; }
 
 .footer-branding {
-  margin-top: clamp(10px, 2.5vw, 16px);
+  margin-top: clamp(8px, 2vw, 12px);
   font-size: 0.78rem;
   text-align: center;
   color: var(--text-faint);
@@ -582,11 +560,7 @@
 }
 
 /* ── SKELETON LOADING ───────────────────────────────────────── */
-.skeleton-wrapper {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+.skeleton-wrapper { display: flex; flex-direction: column; overflow: hidden; }
 
 .skeleton-cover {
   height: clamp(160px, 35vw, 200px);
@@ -617,9 +591,9 @@
   background-image: linear-gradient(90deg, #28283c 25%, #32324a 50%, #28283c 75%);
 }
 
-.h-title   { height: 22px; width: 55%; }
-.h-subtitle{ height: 16px; width: 38%; }
-.h-bio     { height: 52px; width: 88%; }
+.h-title    { height: 22px; width: 55%; }
+.h-subtitle { height: 16px; width: 38%; }
+.h-bio      { height: 52px; width: 88%; }
 
 @keyframes shimmer {
   0%   { background-position: 150% 0; }
@@ -641,39 +615,36 @@
 }
 
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
-
-/* 320px phones */
 @media (max-width: 340px) {
-  .card-wrapper { border-radius: var(--radius-sm); }
-  .card-content { padding: 12px 12px 28px; }
-  .cover-photo { height: 130px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-  .profile-pic { width: 88px; height: 88px; }
-  .user-name { font-size: 1.3rem; }
+  .card-wrapper   { border-radius: var(--radius-sm); }
+  .card-content   { padding: 0 12px 28px; }
+  .cover-photo    { height: 130px; }
+  .profile-pic    { width: 88px; height: 88px; }
+  .user-name      { font-size: 1.3rem; }
   .action-buttons { flex-direction: column; }
-  .qr-code { width: 110px; height: 110px; }
-  .icon-box { width: 40px; height: 40px; }
-  .sp-icon, .icon { width: 22px; height: 22px; }
+  .qr-code        { width: 110px; height: 110px; }
+  .icon-box       { width: 40px; height: 40px; }
   .contact-item span { font-size: 0.78rem; }
 }
 
 @media (max-width: 480px) {
-  .card-wrapper { border-radius: var(--radius-md); }
-  .cover-photo  { height: 150px; border-radius: var(--radius-md) var(--radius-md) 0 0; }
+  .card-wrapper   { border-radius: var(--radius-md); }
+  .cover-photo    { height: 150px; }
   .action-buttons { flex-direction: column; }
-  .links-list { gap: 8px; }
+  .links-list     { gap: 8px; }
   .save-contact-btn { width: 100%; }
 }
 
 @media (max-height: 600px) and (orientation: landscape) {
-  .cover-photo { height: 110px; }
-  .profile-container { margin-top: -48px; }
-  .profile-pic { width: 90px; height: 90px; }
+  .cover-photo        { height: 110px; }
+  .profile-container  { margin-top: -48px; }
+  .profile-pic        { width: 90px; height: 90px; }
 }
 
 @media (pointer: coarse) {
   .save-contact-btn, .custom-link-card, .admin-btn { min-height: 44px; }
   .contact-item { min-height: 52px; }
-  .icon-box { width: 48px; height: 48px; }
+  .icon-box     { width: 48px; height: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

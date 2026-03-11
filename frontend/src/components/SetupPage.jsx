@@ -1,10 +1,10 @@
+// SetupPage.jsx
 import React, { useState, useEffect } from "react";
 import { FaFacebook, FaInstagram, FaLinkedin, FaWhatsapp, FaTelegram, FaSnapchat, FaYoutube, FaLink } from "react-icons/fa";
 import { FaXTwitter, FaThreads } from "react-icons/fa6";
 import { TiDeleteOutline } from "react-icons/ti";
 import axios from "axios";
-import { auth, storage } from "./firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { supabase } from "./supabase";
 import { useTranslation } from "../LanguageContext";
 
 function SetupPage({ tagId, onSave, onLogout }) {
@@ -23,41 +23,52 @@ function SetupPage({ tagId, onSave, onLogout }) {
 
   useEffect(() => {
     const loadData = async () => {
+      setFetching(true);
+
+      // 1. Try server first — use authenticated /edit-data endpoint
+      //    so we get data even before is_setup is true
+      let serverData = null;
       try {
-        setFetching(true);
-        const res = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/card/${tagId}`);
-        let serverData = res.data || {};
-        const draftJson = localStorage.getItem(`setup_draft_${tagId}`);
-        if (draftJson) {
-          const draft = JSON.parse(draftJson);
-          serverData = { ...serverData, ...draft.pageData };
-          setProfilePicFile(draft.profilePic || null);
-          setCoverPhotoFile(draft.coverPhoto || null);
-        } else {
-          setProfilePicFile(res.data?.profilePic || null);
-          setCoverPhotoFile(res.data?.coverPhoto || null);
-        }
-        setPageData({
-          name: serverData.name || "",
-          title: serverData.title || "",
-          phone: serverData.phone || "",
-          email: serverData.email || "",
-          phones: serverData.phones || [],
-          emails: serverData.emails || [],
-          description: serverData.description || "",
-          links: serverData.links || [],
-        });
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_BASE_URL}/edit-data/${tagId}`,
+          token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        );
+        serverData = res.data || {};
       } catch {
-        const draftJson = localStorage.getItem(`setup_draft_${tagId}`);
-        if (draftJson) {
-          const draft = JSON.parse(draftJson);
-          setPageData(draft.pageData);
-          setProfilePicFile(draft.profilePic || null);
-          setCoverPhotoFile(draft.coverPhoto || null);
-        }
-      } finally {
-        setFetching(false);
+        // Server unreachable — will fall back to draft
       }
+
+      // 2. Load local draft (unsaved changes since last save)
+      let draft = null;
+      try {
+        const draftJson = localStorage.getItem(`setup_draft_${tagId}`);
+        if (draftJson) draft = JSON.parse(draftJson);
+      } catch {
+        localStorage.removeItem(`setup_draft_${tagId}`);
+      }
+
+      // 3. Merge: server is the base, draft overlays unsaved changes on top
+      const base = serverData || {};
+      const d = draft?.pageData || {};
+
+      setPageData({
+        name:        d.name        !== undefined ? d.name        : (base.name        || ""),
+        title:       d.title       !== undefined ? d.title       : (base.title       || ""),
+        phone:       d.phone       !== undefined ? d.phone       : (base.phone       || ""),
+        email:       d.email       !== undefined ? d.email       : (base.email       || ""),
+        description: d.description !== undefined ? d.description : (base.description || ""),
+        phones: Array.isArray(d.phones) ? d.phones : (Array.isArray(base.phones) ? base.phones : []),
+        emails: Array.isArray(d.emails) ? d.emails : (Array.isArray(base.emails) ? base.emails : []),
+        links:  Array.isArray(d.links)  ? d.links  : (Array.isArray(base.links)  ? base.links  : []),
+      });
+
+      // Prefer draft pic (new local pick) over server URL
+      setProfilePicFile(draft?.profilePic || base.profilePic || null);
+      setCoverPhotoFile(draft?.coverPhoto  || base.coverPhoto  || null);
+
+      setFetching(false);
     };
     loadData();
   }, [tagId]);
@@ -75,27 +86,47 @@ function SetupPage({ tagId, onSave, onLogout }) {
     return () => clearTimeout(handler);
   }, [tagId, pageData, profilePicFile, coverPhotoFile]);
 
-  const uploadImage = async (file, folder) => {
-    if (!file) return "";
+  // Upload image to Supabase Storage
+  const uploadImage = async (file, bucket) => {
+    // null/undefined = no file picked, no change — return null so backend keeps existing URL
+    if (!file) return null;
+    // Already a URL = file unchanged — return it as-is
     if (typeof file === "string" && file.startsWith("https://")) return file;
-    const imageRef = ref(storage, `${folder}/${auth.currentUser.uid}-${Date.now()}-${file.name}`);
-    await uploadBytes(imageRef, file);
-    return await getDownloadURL(imageRef);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const filePath = `${user.id}-${Date.now()}-${file.name}`;
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, { upsert: true });
+
+    if (error) throw new Error(`Upload failed: ${error.message}`);
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    return data.publicUrl;
   };
 
   const savePage = async () => {
-    if (!auth.currentUser) return setErrorMsg(s.errors.notLoggedIn);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return setErrorMsg(s.errors.notLoggedIn);
     if (!pageData.name || !pageData.phone) return setErrorMsg(s.errors.missingFields);
+
     try {
       setLoading(true);
       setErrorMsg("");
       setSuccessMsg("");
-      const token = await auth.currentUser.getIdToken();
+
       const profilePicUrl = await uploadImage(profilePicFile, "profile-pics");
       const coverPhotoUrl = await uploadImage(coverPhotoFile, "cover-photos");
+
       await axios.post(`${process.env.REACT_APP_API_BASE_URL}/save-page`, {
-        token, tagId, pageData, profilePic: profilePicUrl, coverPhoto: coverPhotoUrl,
+        token: session.access_token,
+        tagId,
+        pageData,
+        profilePic: profilePicUrl,
+        coverPhoto: coverPhotoUrl,
       });
+
       localStorage.removeItem(`setup_draft_${tagId}`);
       setSuccessMsg(s.successMsg);
       setTimeout(() => onSave(), 1500);
@@ -109,10 +140,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
   const addSocial = (platform) => {
     setPageData({
       ...pageData,
-      links: [
-        ...pageData.links,
-        { platform: platform, url: "", isCustomLink: platform === "link" }
-      ]
+      links: [...pageData.links, { platform, url: "", isCustomLink: platform === "link" }],
     });
   };
 
@@ -162,7 +190,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
 
       <h2>{s.title}</h2>
 
-      {/* Profile Picture */}
       <div className="form-group">
         <label>{s.profilePicLabel}</label>
         {profilePicFile && (
@@ -171,10 +198,17 @@ function SetupPage({ tagId, onSave, onLogout }) {
             alt="Profile" style={imgPreviewStyle(true)}
           />
         )}
-        <input type="file" accept="image/*" onChange={(e) => setProfilePicFile(e.target.files[0])} />
+        <input type="file" accept="image/*" onChange={(e) => {
+          const file = e.target.files[0];
+          if (file && file.size > 1.5 * 1024 * 1024) {
+            setErrorMsg(s.errors.imageTooLarge);
+            e.target.value = "";
+            return;
+          }
+          setProfilePicFile(file);
+        }} />
       </div>
 
-      {/* Cover Photo */}
       <div className="form-group">
         <label>{s.coverPhotoLabel}</label>
         {coverPhotoFile && (
@@ -183,7 +217,15 @@ function SetupPage({ tagId, onSave, onLogout }) {
             alt="Cover" style={imgPreviewStyle(false)}
           />
         )}
-        <input type="file" accept="image/*" onChange={(e) => setCoverPhotoFile(e.target.files[0])} />
+        <input type="file" accept="image/*" onChange={(e) => {
+          const file = e.target.files[0];
+          if (file && file.size > 1.5 * 1024 * 1024) {
+            setErrorMsg(s.errors.imageTooLarge);
+            e.target.value = "";
+            return;
+          }
+          setCoverPhotoFile(file);
+        }} />
       </div>
 
       <div className="form-group">
@@ -209,7 +251,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
             {s.emailAddLabel}
           </label>
         </div>
-
         <input
           value={pageData.email}
           onChange={(e) => {
@@ -218,14 +259,10 @@ function SetupPage({ tagId, onSave, onLogout }) {
             setPageData({ ...pageData, email: e.target.value, emails: updatedEmails });
           }}
         />
-
         {pageData.emails.map((em, i) =>
           i === 0 ? null : (
             <div key={i} className="input-with-remove">
-              <input
-                value={em.address}
-                onChange={(e) => updateItem("emails", i, "address", e.target.value)}
-              />
+              <input value={em.address} onChange={(e) => updateItem("emails", i, "address", e.target.value)} />
               <button onClick={() => removeItem("emails", i)} className="remove-btn">
                 <TiDeleteOutline size={30} />
               </button>
@@ -255,10 +292,7 @@ function SetupPage({ tagId, onSave, onLogout }) {
         {pageData.phones.map((ph, i) =>
           i === 0 ? null : (
             <div key={i} className="input-with-remove">
-              <input
-                value={ph.number}
-                onChange={(e) => updateItem("phones", i, "number", e.target.value)}
-              />
+              <input value={ph.number} onChange={(e) => updateItem("phones", i, "number", e.target.value)} />
               <button onClick={() => removeItem("phones", i)} className="remove-btn">
                 <TiDeleteOutline size={30} />
               </button>
@@ -267,7 +301,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
         )}
       </div>
 
-      {/* Links */}
       <section className="setup-section">
         <div className="section-header">
           <h3>{s.socialMediaTitle}</h3>
@@ -291,7 +324,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
             <div className="sm-icons">
               <div className="add-btn sm-icons">{getIcon(sm.platform)}</div>
             </div>
-
             <>
               {sm.isCustomLink && (
                 <input
@@ -300,7 +332,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
                   onChange={(e) => updateItem("links", i, "platform", e.target.value)}
                 />
               )}
-
               <input
                 placeholder={s.urlPlaceholder}
                 value={sm.url}
@@ -309,7 +340,6 @@ function SetupPage({ tagId, onSave, onLogout }) {
                 onChange={(e) => updateItem("links", i, "url", e.target.value)}
               />
             </>
-
             <button onClick={() => removeItem("links", i)} className="remove-btn">
               <TiDeleteOutline size={30} />
             </button>
