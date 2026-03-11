@@ -46,6 +46,34 @@ const requireAdmin = (req, res) => {
 
 const isValidTagId = (id) => /^[a-z0-9-]{1,50}$/.test(id);
 
+const ALLOWED_PLATFORMS = new Set([
+  "facebook", "instagram", "linkedin", "whatsapp", "instapay",
+  "telegram", "twitter", "threads", "snapchat", "youtube", "link",
+]);
+
+const isValidUrl = (str) => {
+  if (typeof str !== "string" || str.length > 500) return false;
+  if (str === "") return true;
+  try {
+    const u = new URL(str);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return /^[^\s<>"]{1,300}$/.test(str);
+  }
+};
+
+const validateLink = (link) => {
+  if (!link || typeof link !== "object") return false;
+  const { platform, url, isCustomLink } = link;
+  if (typeof url !== "string" || !isValidUrl(url)) return false;
+  if (isCustomLink) {
+    if (typeof platform !== "string" || platform.length > 100) return false;
+  } else {
+    if (!ALLOWED_PLATFORMS.has(platform)) return false;
+  }
+  return true;
+};
+
 const validatePageData = (data) => {
   if (!data || typeof data !== "object") return false;
   const strFields = ["name", "title", "phone", "email", "description"];
@@ -53,8 +81,25 @@ const validatePageData = (data) => {
     if (data[field] !== undefined && typeof data[field] !== "string") return false;
     if (typeof data[field] === "string" && data[field].length > 500) return false;
   }
-  if (data.links !== undefined && !Array.isArray(data.links)) return false;
-  if (Array.isArray(data.links) && data.links.length > 30) return false;
+  if (data.links !== undefined) {
+    if (!Array.isArray(data.links)) return false;
+    if (data.links.length > 30) return false;
+    for (const link of data.links) {
+      if (!validateLink(link)) return false;
+    }
+  }
+  if (data.phones !== undefined) {
+    if (!Array.isArray(data.phones) || data.phones.length > 10) return false;
+    for (const p of data.phones) {
+      if (!p || typeof p.number !== "string" || p.number.length > 30) return false;
+    }
+  }
+  if (data.emails !== undefined) {
+    if (!Array.isArray(data.emails) || data.emails.length > 10) return false;
+    for (const e of data.emails) {
+      if (!e || typeof e.address !== "string" || e.address.length > 200) return false;
+    }
+  }
   return true;
 };
 
@@ -64,7 +109,6 @@ const verifyToken = async (token) => {
   return user;
 };
 
-// Extract storage bucket + path from a Supabase public URL
 const parseStorageUrl = (url) => {
   if (!url || typeof url !== "string") return null;
   const marker = "/object/public/";
@@ -76,7 +120,6 @@ const parseStorageUrl = (url) => {
   return { bucket: rest.slice(0, slash), path: rest.slice(slash + 1) };
 };
 
-// Delete a file from Supabase Storage by its public URL. Errors are non-fatal.
 const deleteStorageFile = async (url) => {
   const parsed = parseStorageUrl(url);
   if (!parsed) return;
@@ -127,13 +170,22 @@ app.post("/admin/create-tag", adminLimiter, async (req, res) => {
   try {
     const { data: existing } = await supabase.from("tags").select("id").eq("id", tagId).single();
     if (existing) return res.status(409).json({ error: "Tag already exists" });
+
+    // Generate code — store ONLY the hash, never plain text in DB
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const hashedCode = await bcrypt.hash(code, 10);
+
     const { error } = await supabase.from("tags").insert({
-      id: tagId, verification_code: hashedCode, temp_code: code,
-      is_setup: false, is_active: true, page_data: {}, owner_id: null,
+      id: tagId,
+      verification_code: hashedCode,
+      is_setup: false,
+      is_active: true,
+      page_data: {},
+      owner_id: null,
     });
     if (error) throw error;
+
+    // Return plain-text code ONCE so admin can distribute it (print on card, etc.)
     res.json({ message: "Tag created", tagId, code });
   } catch (err) {
     console.error("Error creating tag:", err);
@@ -160,14 +212,12 @@ app.post("/admin/delete-tag", adminLimiter, async (req, res) => {
   const tagId = req.body.tagId?.trim().toLowerCase();
   if (!tagId || !isValidTagId(tagId)) return res.status(400).json({ error: "Invalid tag ID" });
   try {
-    // Fetch page_data BEFORE deleting so we can clean up storage
     const { data: tag } = await supabase
       .from("tags").select("page_data").eq("id", tagId).single();
 
     const { data, error } = await supabase.from("tags").delete().eq("id", tagId).select("id").single();
     if (error || !data) return res.status(404).json({ error: "Tag not found" });
 
-    // Delete photos after the row is gone (non-fatal)
     if (tag?.page_data) {
       await Promise.allSettled([
         deleteStorageFile(tag.page_data.profilePic),
@@ -203,11 +253,12 @@ app.get("/tag/:tagId", async (req, res) => {
   if (!tagId || !isValidTagId(tagId)) return res.status(400).json({ error: "Invalid tag ID" });
   try {
     const { data, error } = await supabase
-      .from("tags").select("is_active, is_setup, owner_id, temp_code").eq("id", tagId).single();
+      .from("tags").select("is_active, is_setup, owner_id").eq("id", tagId).single();
     if (error || !data) return res.status(404).json({ error: "Tag not found" });
     if (!data.is_active) return res.json({ status: "deactivated" });
     if (data.owner_id) return res.json({ status: "claimed", isSetup: data.is_setup, ownerId: data.owner_id });
-    return res.json({ status: "unclaimed", isSetup: false, code: data.temp_code });
+    // Unclaimed: verification code is NOT exposed — distributed out-of-band (printed on card)
+    return res.json({ status: "unclaimed", isSetup: false });
   } catch (err) {
     console.error(`Error fetching tag ${tagId}:`, err);
     res.status(500).json({ error: "Server error" });
@@ -247,13 +298,17 @@ app.post("/claim-tag", async (req, res) => {
     if (tag.owner_id) return res.status(409).json({ error: "TAG_ALREADY_CLAIMED" });
     const isMatch = await bcrypt.compare(code.trim().toUpperCase(), tag.verification_code);
     if (!isMatch) return res.status(401).json({ error: "INVALID_CODE" });
+
     let userId;
     if (isExistingUser) {
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+      // Filtered lookup — avoids downloading all users
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({
+        filter: `email.eq.${email.toLowerCase()}`,
+        perPage: 1,
+      });
       if (listError) throw listError;
-      const existing = users.find((u) => u.email === email.toLowerCase());
-      if (!existing) return res.status(404).json({ error: "USER_NOT_FOUND" });
-      userId = existing.id;
+      if (!users || users.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+      userId = users[0].id;
     } else {
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email: email.toLowerCase(),
@@ -266,16 +321,17 @@ app.post("/claim-tag", async (req, res) => {
       }
       userId = newUser.user.id;
     }
+
     const { error: updateError } = await supabase
       .from("tags")
       .update({
         owner_id: userId,
         claimed_at: new Date().toISOString(),
-        temp_code: null,
         verification_code: null,
       })
       .eq("id", tagId);
     if (updateError) throw updateError;
+
     res.json({ message: "Tag claimed successfully", uid: userId });
   } catch (err) {
     console.error("Claim error:", err.message);
@@ -283,10 +339,14 @@ app.post("/claim-tag", async (req, res) => {
   }
 });
 
-// POST /save-page
+// POST /save-page — token via Authorization header
 app.post("/save-page", async (req, res) => {
-  const { token, tagId, pageData, profilePic, coverPhoto } = req.body;
-  if (!token || !tagId) return res.status(400).json({ error: "Missing token or tagId" });
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Missing token" });
+
+  const { tagId, pageData, profilePic, coverPhoto } = req.body;
+  if (!tagId) return res.status(400).json({ error: "Missing tagId" });
   if (!isValidTagId(tagId)) return res.status(400).json({ error: "Invalid tag ID" });
 
   const parsedPageData = typeof pageData === "string" ? JSON.parse(pageData) : pageData;
@@ -296,7 +356,6 @@ app.post("/save-page", async (req, res) => {
     const user = await verifyToken(token);
     if (!user) return res.status(401).json({ error: "Invalid or expired token" });
 
-    // Single query: get owner + existing page_data
     const { data: tag, error: tagError } = await supabase
       .from("tags").select("owner_id, page_data").eq("id", tagId).single();
 
@@ -308,26 +367,18 @@ app.post("/save-page", async (req, res) => {
     const oldProfilePic = oldData.profilePic || null;
     const oldCoverPhoto = oldData.coverPhoto || null;
 
-    // profilePic/coverPhoto rules:
-    //   typeof === "string"  →  new URL (upload or unchanged) → save it, delete old if different
-    //   null / undefined     →  no file picked → keep existing URL, do NOT delete
-
     if (typeof profilePic === "string") {
       parsedPageData.profilePic = profilePic;
-      if (oldProfilePic && oldProfilePic !== profilePic) {
-            await deleteStorageFile(oldProfilePic);
-      }
+      if (oldProfilePic && oldProfilePic !== profilePic) await deleteStorageFile(oldProfilePic);
     } else {
-        if (oldProfilePic) parsedPageData.profilePic = oldProfilePic;
+      if (oldProfilePic) parsedPageData.profilePic = oldProfilePic;
     }
 
     if (typeof coverPhoto === "string") {
       parsedPageData.coverPhoto = coverPhoto;
-      if (oldCoverPhoto && oldCoverPhoto !== coverPhoto) {
-            await deleteStorageFile(oldCoverPhoto);
-      }
+      if (oldCoverPhoto && oldCoverPhoto !== coverPhoto) await deleteStorageFile(oldCoverPhoto);
     } else {
-        if (oldCoverPhoto) parsedPageData.coverPhoto = oldCoverPhoto;
+      if (oldCoverPhoto) parsedPageData.coverPhoto = oldCoverPhoto;
     }
 
     const { error: updateError } = await supabase

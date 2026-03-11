@@ -119,13 +119,11 @@ function SetupPage({ tagId, onSave, onLogout }) {
       const profilePicUrl = await uploadImage(profilePicFile, "profile-pics");
       const coverPhotoUrl = await uploadImage(coverPhotoFile, "cover-photos");
 
-      await axios.post(`${process.env.REACT_APP_API_BASE_URL}/save-page`, {
-        token: session.access_token,
-        tagId,
-        pageData,
-        profilePic: profilePicUrl,
-        coverPhoto: coverPhotoUrl,
-      });
+      await axios.post(
+        `${process.env.REACT_APP_API_BASE_URL}/save-page`,
+        { tagId, pageData, profilePic: profilePicUrl, coverPhoto: coverPhotoUrl },
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      );
 
       localStorage.removeItem(`setup_draft_${tagId}`);
       setSuccessMsg(s.successMsg);

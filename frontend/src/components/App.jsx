@@ -125,10 +125,10 @@ function AppInner() {
       <div className="app-container">
         {view === VIEWS.HOME && <Home />}
         {view === VIEWS.FIRST_SCAN && (
-          <FirstScanPage tagId={tagId} verificationCode={tagData?.code} onProceed={() => setView(VIEWS.REGISTER)} />
+          <FirstScanPage tagId={tagId} onProceed={() => setView(VIEWS.REGISTER)} />
         )}
         {view === VIEWS.REGISTER && (
-          <RegisterPage tagId={tagId} code={tagData?.code} onAdminCreated={() => fetchTag()} />
+          <RegisterPage tagId={tagId} onAdminCreated={() => fetchTag()} />
         )}
         {view === VIEWS.LOGIN && (
           <AdminLoginPage onLoginSuccess={() => fetchTag()} onBack={() => setView(VIEWS.PUBLIC)} />
